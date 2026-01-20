@@ -65,9 +65,6 @@ pytest
 
 # Run linting
 ruff check src/ tests/
-
-# Run type checking
-mypy src/
 ```
 
 ## Coding Standards

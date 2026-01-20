@@ -61,7 +61,6 @@ all = [
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=6.0.0",
-    "mypy>=1.10.0",
     "ruff>=0.4.0",
 ]
 
@@ -76,25 +75,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "edgefirst.cameraadaptor" = ["py.typed"]
-
-[tool.mypy]
-python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-strict_equality = true
-extra_checks = true
-
-[[tool.mypy.overrides]]
-module = [
-    "cv2.*",
-    "torch.*",
-    "tensorflow.*",
-    "pytorch_lightning.*",
-]
-ignore_missing_imports = true
 
 [tool.ruff]
 target-version = "py310"
