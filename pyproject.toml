@@ -1,0 +1,129 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "edgefirst-cameraadaptor"
+version = "0.1.0"
+description = "Train models for native camera formats supported by edge platforms"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "Sébastien Taylor", email = "sebastien@au-zone.com" }
+]
+keywords = [    
+    "edgefirst",
+    "edge-ai",
+    "camera",
+    "color-space",
+    "yuv",
+    "bayer",
+    "pytorch",
+    "tensorflow",
+    "deep-learning",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+
+dependencies = [
+    "numpy>=1.21.0",
+]
+
+[project.optional-dependencies]
+transform = [
+    "opencv-python>=4.5.0",
+]
+torch = [
+    "torch>=1.9.0",
+]
+tensorflow = [
+    "tensorflow>=2.8.0",
+]
+lightning = [
+    "pytorch-lightning>=1.6.0",
+    "torch>=1.9.0",
+]
+all = [
+    "edgefirst-cameraadaptor[transform,torch,tensorflow,lightning]",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+    "mypy>=1.10.0",
+    "ruff>=0.4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/EdgeFirstAI/cameraadaptor"
+Documentation = "https://github.com/EdgeFirstAI/cameraadaptor#readme"
+Repository = "https://github.com/EdgeFirstAI/cameraadaptor.git"
+Issues = "https://github.com/EdgeFirstAI/cameraadaptor/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"edgefirst.cameraadaptor" = ["py.typed"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+strict_equality = true
+extra_checks = true
+
+[[tool.mypy.overrides]]
+module = [
+    "cv2.*",
+    "torch.*",
+    "tensorflow.*",
+    "pytorch_lightning.*",
+]
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 79
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+markers = [
+    "opencv: marks tests requiring OpenCV (deselect with '-m \"not opencv\"')",
+]
+
+[tool.coverage.run]
+source = ["edgefirst.cameraadaptor"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise ImportError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
+skip_covered = false
+
+[tool.coverage.html]
+directory = "htmlcov"
