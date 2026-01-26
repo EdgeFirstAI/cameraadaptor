@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-01-26
+
+### Fixed
+
+- Corrected package name in all error messages from `edgefirst-camera-adaptor` to `edgefirst-cameraadaptor`
+- Changed `[transform]` extra dependency from `opencv-python` to `opencv-python-headless` to prevent conflicts on headless servers where `opencv-python-headless` is already installed
+- Fixed CHANGELOG repository URLs to point to correct GitHub path
+
 ## [0.1.0] - 2025-01-18
 
 ### Added
@@ -21,5 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite
 - Documentation with quickstart guide and format references
 
-[Unreleased]: https://github.com/EdgeFirstAI/cameraadaptor/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/EdgeFirstAI/cameraadaptor/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/EdgeFirstAI/cameraadaptor/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/EdgeFirstAI/cameraadaptor/releases/tag/v0.1.0

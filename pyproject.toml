@@ -1,13 +1,13 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=61.0,<70", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "edgefirst-cameraadaptor"
-version = "0.1.0"
+version = "0.1.1"
 description = "Train models for native camera formats supported by edge platforms"
 readme = "README.md"
-license = "Apache-2.0"
+license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
 authors = [
     { name = "Sébastien Taylor", email = "sebastien@au-zone.com" }
