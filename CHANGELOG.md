@@ -21,5 +21,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite
 - Documentation with quickstart guide and format references
 
-[Unreleased]: https://github.com/au-zone/edgefirst-camera-adaptor/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/au-zone/edgefirst-camera-adaptor/releases/tag/v0.1.0
+[Unreleased]: https://github.com/EdgeFirstAI/cameraadaptor/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/EdgeFirstAI/cameraadaptor/releases/tag/v0.1.0

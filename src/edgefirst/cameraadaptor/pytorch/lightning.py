@@ -38,7 +38,7 @@ class CameraAdaptorCallback:
         if importlib.util.find_spec("pytorch_lightning") is None:
             raise ImportError(
                 "PyTorch Lightning is required for this callback. "
-                "Install with: pip install edgefirst-camera-adaptor[lightning]"
+                "Install with: pip install edgefirst-cameraadaptor[lightning]"
             )
 
         self._adaptor = adaptor
@@ -143,7 +143,7 @@ def create_callback(adaptor: str, log_to_hparams: bool = True) -> Any:
     except ImportError:
         raise ImportError(
             "PyTorch Lightning is required for this callback. "
-            "Install with: pip install edgefirst-camera-adaptor[lightning]"
+            "Install with: pip install edgefirst-cameraadaptor[lightning]"
         ) from None
 
     class _CameraAdaptorCallback(Callback):

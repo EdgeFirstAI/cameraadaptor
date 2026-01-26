@@ -1,3 +1,3 @@
-"""Version information for edgefirst-camera-adaptor."""
+"""Version information for edgefirst-cameraadaptor."""
 
 __version__ = "0.1.0"

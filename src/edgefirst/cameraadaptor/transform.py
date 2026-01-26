@@ -155,7 +155,7 @@ class CameraAdaptorTransform:
         except ImportError:
             raise ImportError(
                 "OpenCV is required for color space conversions. "
-                "Install with: pip install edgefirst-camera-adaptor[transform]"
+                "Install with: pip install edgefirst-cameraadaptor[transform]"
             ) from None
 
         source = self._source_format

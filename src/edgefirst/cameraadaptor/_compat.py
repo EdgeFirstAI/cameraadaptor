@@ -1,4 +1,4 @@
-"""Compatibility utilities for edgefirst-camera-adaptor."""
+"""Compatibility utilities for edgefirst-cameraadaptor."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def require_torch() -> None:
     if not check_torch_available():
         raise ImportError(
             "PyTorch is required for this functionality. "
-            "Install with: pip install edgefirst-camera-adaptor[torch]"
+            "Install with: pip install edgefirst-cameraadaptor[torch]"
         )
 
 
@@ -68,7 +68,7 @@ def require_tensorflow() -> None:
     if not check_tensorflow_available():
         raise ImportError(
             "TensorFlow is required for this functionality. "
-            "Install with: pip install edgefirst-camera-adaptor[tensorflow]"
+            "Install with: pip install edgefirst-cameraadaptor[tensorflow]"
         )
 
 
@@ -77,7 +77,7 @@ def require_lightning() -> None:
     if not check_lightning_available():
         raise ImportError(
             "PyTorch Lightning is required for this functionality. "
-            "Install with: pip install edgefirst-camera-adaptor[lightning]"
+            "Install with: pip install edgefirst-cameraadaptor[lightning]"
         )
 
 
@@ -86,5 +86,5 @@ def require_opencv() -> None:
     if not check_opencv_available():
         raise ImportError(
             "OpenCV is required for this functionality. "
-            "Install with: pip install edgefirst-camera-adaptor[transform]"
+            "Install with: pip install edgefirst-cameraadaptor[transform]"
         )

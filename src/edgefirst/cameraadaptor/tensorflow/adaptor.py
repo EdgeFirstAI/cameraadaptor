@@ -9,7 +9,7 @@ try:
 except ImportError as err:
     raise ImportError(
         "TensorFlow is required for this module. "
-        "Install with: pip install edgefirst-camera-adaptor[tensorflow]"
+        "Install with: pip install edgefirst-cameraadaptor[tensorflow]"
     ) from err
 
 from ..color_spaces import (
