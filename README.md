@@ -17,23 +17,20 @@ When deploying computer vision models to edge devices, there's often a mismatch 
 
 ## How It Works
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        TRAINING TIME                            │
-├─────────────────────────────────────────────────────────────────┤
-│  RGB Dataset ─── CameraAdaptorTransform ──→ Target Format       │
-│                        (e.g., YUYV, BGR)                        │
-│                              ↓                                  │
-│                    Model with CameraAdaptor                     │
-│                    as first layer                               │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+  subgraph training ["Training Time"]
+    direction LR
+    A1["RGB Dataset"] --> B1["CameraAdaptorTransform"] --> C1["Target Format<br>(e.g., YUYV, BGR)"] --> D1["Model with<br>CameraAdaptor"]
+  end
 
-┌─────────────────────────────────────────────────────────────────┐
-│                        INFERENCE TIME                           │
-├─────────────────────────────────────────────────────────────────┤
-│  Camera/Hardware ────────────────────────→ Model (native format)│
-│                    No conversion needed!                        │
-└─────────────────────────────────────────────────────────────────┘
+  subgraph inference ["Inference Time"]
+    direction LR
+    A2["Camera/<br>Hardware"] --> D2["Model<br>(native format)"]
+  end
+
+  style training fill:#e3f2fd,stroke:#1976d2
+  style inference fill:#e8f5e9,stroke:#4caf50
 ```
 
 ## Key Components
