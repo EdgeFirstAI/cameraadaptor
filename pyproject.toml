@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "edgefirst-cameraadaptor"
-version = "0.1.1"
+version = "0.1.2"
 description = "Train models for native camera formats supported by edge platforms"
 readme = "README.md"
 license = "Apache-2.0"
