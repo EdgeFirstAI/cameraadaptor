@@ -137,6 +137,7 @@ SUPPORTED_SOURCE_FORMATS: frozenset[ColorSpace] = frozenset(
         ColorSpace.RGBA,
         ColorSpace.BGR,
         ColorSpace.BGRA,
+        ColorSpace.GREY,
     }
 )
 

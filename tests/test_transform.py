@@ -130,6 +130,12 @@ class TestCameraAdaptorTransformSourceFormat:
         assert transform.source_format == "bgra"
         assert transform.source_color_space == ColorSpace.BGRA
 
+    def test_source_format_grey(self):
+        """Test GREY source format for grayscale-to-grayscale (identity)."""
+        transform = CameraAdaptorTransform("grey", source_format="grey")
+        assert transform.source_format == "grey"
+        assert transform.source_color_space == ColorSpace.GREY
+
     def test_source_format_case_insensitive(self):
         """Test source format is case insensitive."""
         transform = CameraAdaptorTransform("yuyv", source_format="BGR")
@@ -221,6 +227,25 @@ class TestCameraAdaptorTransformConversions:
         transform = CameraAdaptorTransform("yuyv", source_format="bgr")
         result = transform(bgr_image)
         assert result.shape == (224, 224, 2)
+
+    def test_grey_identity(self, rgb_image):
+        """Test GREY -> GREY is identity (grayscale pass-through)."""
+        import cv2
+
+        grey_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
+        transform = CameraAdaptorTransform("grey", source_format="grey")
+        result = transform(grey_image)
+        np.testing.assert_array_equal(result, grey_image)
+
+    def test_bgr_to_grey_conversion(self, rgb_image):
+        """Test BGR -> GREY conversion."""
+        import cv2
+
+        bgr_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
+        transform = CameraAdaptorTransform("grey", source_format="bgr")
+        result = transform(bgr_image)
+        expected = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2GRAY)
+        np.testing.assert_array_equal(result, expected)
 
     def test_rgba_to_yuyv_conversion(self, rgba_image):
         """Test RGBA -> YUYV conversion."""
