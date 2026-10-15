@@ -371,7 +371,7 @@ tiling:
   export:                        # how this model was produced
     session: t-3c4d
     weights_from: t-1a2b         # omitted when the same session trained and exported
-    calibration: {resize: tiled, input_shape: [640, 640]}
+    calibration: {resize: tiled, input_shape: [640, 640], full_frame: false}
   # reserved for later tasks (§8): masks, semantic, keypoints, obb
 ```
 

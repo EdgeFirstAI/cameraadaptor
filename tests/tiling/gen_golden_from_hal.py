@@ -1,18 +1,21 @@
 """Append random EvenDist cases computed by HAL to
 tests/fixtures/tiling_golden.json.
 
-Run from a venv with HAL's ``edgefirst.image`` bindings installed
-(e.g. ``~/software/hal/venv``):
-    ~/software/hal/venv/bin/python tests/tiling/gen_golden_from_hal.py
+Run from a venv with HAL's ``edgefirst-image`` bindings installed (the
+``dev`` extra pins them):
+    python tests/tiling/gen_golden_from_hal.py
+
+The HAL version that produced the cases is recorded beside them.
 """
 
 import json
 import pathlib
 import random
 
-from edgefirst.image import (
+from edgefirst.image import (  # tile_grid(frame_w, frame_h, tile_w, tile_h, r)
     tile_grid,
-)  # HAL: tile_grid(frame_w, frame_h, tile_w, tile_h, overlap)
+    version,
+)
 
 FIXTURE = pathlib.Path(__file__).parents[1] / "fixtures" / "tiling_golden.json"
 
@@ -31,6 +34,7 @@ def main(n: int = 200, seed: int = 20260928) -> None:
         origins = sorted({spec.source.x for spec in tiles})
         cases.append({"L": length, "t": t, "r": r, "origins": origins})
     golden["hal_random"] = cases
+    golden["hal_random_version"] = version()
     FIXTURE.write_text(json.dumps(golden, indent=2) + "\n")
 
 

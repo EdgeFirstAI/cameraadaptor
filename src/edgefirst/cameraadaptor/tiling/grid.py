@@ -7,6 +7,7 @@ HAL.
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -79,6 +80,7 @@ class TilePlacement:
 
     @property
     def rect(self) -> tuple[int, int, int, int]:
+        """The crop as ``(x, y, w, h)`` in frame pixels."""
         return (*self.origin, *self.crop_size)
 
     @property
@@ -123,7 +125,7 @@ def tile_grid(
 
 
 def frames_per_batch(
-    frame_shapes,
+    frame_shapes: Iterable[Sequence[int]],
     tile_hw: tuple[int, int],
     min_overlap: float,
     tile_budget: int,

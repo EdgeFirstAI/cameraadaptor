@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ._types import HW, ArrayLike, Rect
 from .config import KINDS, TilingConfig
 from .grid import TilePlacement, fit_content, tile_grid
 from .targets import CropResult, crop_targets, window_transform
@@ -17,6 +18,8 @@ from .targets import CropResult, crop_targets, window_transform
 
 @dataclass(frozen=True)
 class Window:
+    """One sampled window: its frame rectangle, tile placement and targets."""
+
     kind: str
     rect: tuple[int, int, int, int]
     out_hw: tuple[int, int]
@@ -30,10 +33,12 @@ class Window:
 
     @property
     def boxes(self) -> np.ndarray:
+        """Target boxes, xyxy in tile pixels."""
         return self.targets.boxes
 
     @property
     def classes(self) -> np.ndarray:
+        """Target classes."""
         return self.targets.classes
 
 
@@ -326,17 +331,17 @@ class _FrameSampler:
 
 
 def sample_windows(
-    frame_hw,
-    boxes_xyxy,
-    classes,
+    frame_hw: HW,
+    boxes_xyxy: ArrayLike,
+    classes: ArrayLike,
     cfg: TilingConfig,
     rng: np.random.Generator,
     k: int = 1,
     phase: str = "main",
-    hard_regions=None,
-    valid_rect=None,
-    class_repeat=None,
-    kinds=None,
+    hard_regions: ArrayLike | None = None,
+    valid_rect: Rect | None = None,
+    class_repeat: ArrayLike | None = None,
+    kinds: Sequence[str] | None = None,
 ) -> list[Window]:
     """Draw windows for one frame. ``valid_rect`` (x, y, w, h) is reserved
     (§3.4): it is checked but does not yet constrain background windows.

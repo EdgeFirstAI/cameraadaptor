@@ -1,1 +1,0 @@
-# edgefirst namespace package
