@@ -360,31 +360,8 @@ def check_snapshot_params(
     return snapshot_hw
 
 
-def check_snapshot_geometry(
-    params: Mapping,
-    sample_hw: Sequence[int],
-    model_input_hw: Sequence[int],
-    tiling_mode: str | None,
-    full_frame: bool = False,
-) -> None:
-    """Raise ContractError unless a calibration snapshot fits the model it
-    calibrates.
-
-    `params` is the snapshot's `__metadata__["params"]` (decoded), `sample_hw`
-    the H,W of its stored samples, `model_input_hw` the model's input H,W after
-    any layout mapping or explicit override, `tiling_mode` the model's
-    `tiling.mode` (None without a tiling section), and `full_frame` the model's
-    `tiling.full_frame.enabled`. Sizes may be any sequence of integers,
-    including NumPy arrays and integer scalars.
-    """
-    snapshot_hw = check_snapshot_params(params, model_input_hw)
-    sample = _hw(sample_hw, "calibration sample H,W")
-    if sample != snapshot_hw:
-        raise ContractError(
-            f"calibration sample H,W {list(sample)} does not match the "
-            f"snapshot input_shape "
-            f"{list(snapshot_hw)}"
-        )
+def _check_snapshot_resize(params: Mapping, tiling_mode: str | None) -> None:
+    """The snapshot's resize (and grid, when tiled) suits the model's mode."""
     resize = params["resize"]
     if tiling_mode == "tiled":
         if resize != "tiled":
@@ -417,6 +394,34 @@ def check_snapshot_geometry(
             f"for a non-tiled model; "
             f"got {resize!r}"
         )
+
+
+def check_snapshot_geometry(
+    params: Mapping,
+    sample_hw: Sequence[int],
+    model_input_hw: Sequence[int],
+    tiling_mode: str | None,
+    full_frame: bool = False,
+) -> None:
+    """Raise ContractError unless a calibration snapshot fits the model it
+    calibrates.
+
+    `params` is the snapshot's `__metadata__["params"]` (decoded), `sample_hw`
+    the H,W of its stored samples, `model_input_hw` the model's input H,W after
+    any layout mapping or explicit override, `tiling_mode` the model's
+    `tiling.mode` (None without a tiling section), and `full_frame` the model's
+    `tiling.full_frame.enabled`. Sizes may be any sequence of integers,
+    including NumPy arrays and integer scalars.
+    """
+    snapshot_hw = check_snapshot_params(params, model_input_hw)
+    sample = _hw(sample_hw, "calibration sample H,W")
+    if sample != snapshot_hw:
+        raise ContractError(
+            f"calibration sample H,W {list(sample)} does not match the "
+            f"snapshot input_shape "
+            f"{list(snapshot_hw)}"
+        )
+    _check_snapshot_resize(params, tiling_mode)
     has_frames = params.get("full_frame", False)
     _flag(has_frames, "calibration snapshot full_frame")
     if has_frames != bool(full_frame):

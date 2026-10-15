@@ -83,6 +83,15 @@ def _union(box, score, hit_boxes, hit_scores):
     return box, max(score, hit_scores.max())
 
 
+def _overlap_row(dense, boxes, area, j: int, metric, thr, eps) -> np.ndarray:
+    """Row ``j`` of a group's overlap matrix, from ``dense`` when the group
+    is small enough to precompute it.
+    """
+    if dense is not None:
+        return dense[j]
+    return _overlaps(boxes, area, metric, thr, eps, (j, j + 1))[0]
+
+
 def merge_tiled_detections(
     boxes,
     scores,
@@ -136,12 +145,8 @@ def merge_tiled_detections(
         used[i] = True
         g, j = group_of[i], local[i]
         members = groups[g]
-        row = (
-            hits[g][j]
-            if hits[g] is not None
-            else _overlaps(
-                boxes_of[g], area_of[g], metric, thr, eps, (j, j + 1)
-            )[0]
+        row = _overlap_row(
+            hits[g], boxes_of[g], area_of[g], j, metric, thr, eps
         )
         # Every unclaimed box comes later in score order, so claiming all
         # unclaimed overlaps claims exactly the later ones.
@@ -155,6 +160,11 @@ def merge_tiled_detections(
         out_c.append(c[i])
     if not out_b:
         return b[:0], s[:0], c[:0]
+    return _collect(out_b, out_s, out_c, score_threshold, max_det)
+
+
+def _collect(out_b, out_s, out_c, score_threshold: float, max_det: int):
+    """Kept boxes as arrays, above the score floor and capped at max_det."""
     ob, os_, oc = (
         np.stack(out_b),
         np.asarray(out_s, np.float32),
