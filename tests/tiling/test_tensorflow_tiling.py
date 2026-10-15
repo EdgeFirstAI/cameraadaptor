@@ -230,15 +230,10 @@ def test_graph_target_rules_match_the_core():
 
 
 def test_graph_target_rules_reject_ignore():
+    boxes = np.zeros((1, 4), np.float32)
+    rules = TargetRules(truncation="ignore")
     with pytest.raises(ValueError, match="ignore"):
-        tft.crop_targets(
-            np.zeros((1, 4), np.float32),
-            [0],
-            [True],
-            [0, 0, 10, 10],
-            T,
-            TargetRules(truncation="ignore"),
-        )
+        tft.crop_targets(boxes, [0], [True], [0, 0, 10, 10], T, rules)
 
 
 # --- validation -------------------------------------------------------------
