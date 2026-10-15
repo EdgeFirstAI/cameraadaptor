@@ -167,6 +167,7 @@ src/edgefirst/cameraadaptor/
 ├── transform.py         # CameraAdaptorTransform
 ├── config.py            # CameraAdaptorConfig
 ├── hal_utils.py         # FOURCC/colorspace mapping for HAL
+├── calibration.py       # INT8 calibration selection and tiled planning
 ├── py.typed             # PEP 561 type marker
 ├── tiling/              # Input tiling core, NumPy only (TILING.md)
 │   ├── config.py        # TilingConfig, Mix, ScaleConfig, TargetRules
