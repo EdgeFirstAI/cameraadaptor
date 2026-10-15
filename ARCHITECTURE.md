@@ -168,10 +168,22 @@ src/edgefirst/cameraadaptor/
 ├── config.py            # CameraAdaptorConfig
 ├── hal_utils.py         # FOURCC/colorspace mapping for HAL
 ├── py.typed             # PEP 561 type marker
+├── tiling/              # Input tiling core, NumPy only (TILING.md)
+│   ├── config.py        # TilingConfig, Mix, ScaleConfig, TargetRules
+│   ├── plan.py          # Epoch plan: frames per batch, tile kinds
+│   ├── sampler.py       # Window sampler
+│   ├── targets.py       # Target rules for a window
+│   ├── grid.py          # EvenDist grid, letterbox, validation budget
+│   ├── merge.py         # Lift and cross-tile merge (matches HAL)
+│   ├── metadata.py      # The model's `tiling` block
+│   ├── contract.py      # Conformance checks for the block
+│   ├── stats.py         # Sampler statistics
+│   └── pixels.py        # Window rendering (OpenCV, transform extra)
 ├── pytorch/
 │   ├── __init__.py      # PyTorch exports
 │   ├── adaptor.py       # CameraAdaptor module
-│   └── lightning.py     # PyTorch Lightning integration
+│   ├── lightning.py     # PyTorch Lightning integration
+│   └── tiling.py        # Tiled validation ops on tensors
 └── tensorflow/
     ├── __init__.py      # TensorFlow exports
     └── adaptor.py       # CameraAdaptor Keras layer

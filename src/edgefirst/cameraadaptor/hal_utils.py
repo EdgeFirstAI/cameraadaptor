@@ -83,8 +83,7 @@ def get_fourcc_str(color_space: str | ColorSpace) -> str:
         except ValueError:
             supported = ", ".join(cs.value for cs in SUPPORTED_COLOR_SPACES)
             raise ValueError(
-                f"Invalid color space: {color_space}. "
-                f"Supported: {supported}"
+                f"Invalid color space: {color_space}. Supported: {supported}"
             ) from None
 
     if color_space not in FOURCC_MAP:
@@ -208,8 +207,7 @@ def get_planar_fourcc_str(color_space: str | ColorSpace) -> str:
         except ValueError:
             supported = ", ".join(cs.value for cs in SUPPORTED_COLOR_SPACES)
             raise ValueError(
-                f"Invalid color space: {color_space}. "
-                f"Supported: {supported}"
+                f"Invalid color space: {color_space}. Supported: {supported}"
             ) from None
 
     if color_space not in PLANAR_FOURCC_MAP:

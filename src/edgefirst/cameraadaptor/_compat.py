@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 from typing import TYPE_CHECKING
 
@@ -14,44 +15,31 @@ PY39 = sys.version_info >= (3, 9)
 PY310 = sys.version_info >= (3, 10)
 
 
-def check_torch_available() -> bool:
-    """Check if PyTorch is available."""
-    try:
-        import torch  # noqa: F401
+def _installed(module: str) -> bool:
+    # Importing a framework only to test for it is slow and, for some
+    # TensorFlow and PyTorch Lightning builds, crashes when both load in one
+    # process.
+    return importlib.util.find_spec(module) is not None
 
-        return True
-    except ImportError:
-        return False
+
+def check_torch_available() -> bool:
+    """Check if PyTorch is installed, without importing it."""
+    return _installed("torch")
 
 
 def check_tensorflow_available() -> bool:
-    """Check if TensorFlow is available."""
-    try:
-        import tensorflow  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+    """Check if TensorFlow is installed, without importing it."""
+    return _installed("tensorflow")
 
 
 def check_lightning_available() -> bool:
-    """Check if PyTorch Lightning is available."""
-    try:
-        import pytorch_lightning  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+    """Check if PyTorch Lightning is installed, without importing it."""
+    return _installed("pytorch_lightning")
 
 
 def check_opencv_available() -> bool:
-    """Check if OpenCV is available."""
-    try:
-        import cv2  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+    """Check if OpenCV is installed, without importing it."""
+    return _installed("cv2")
 
 
 def require_torch() -> None:

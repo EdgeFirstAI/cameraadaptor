@@ -1,7 +1,15 @@
 """Pytest configuration and fixtures for camera adaptor tests."""
 
+import importlib.util
+
 import numpy as np
 import pytest
+
+# TensorFlow loads its libraries with RTLD_GLOBAL, exporting LLVM and MLIR
+# symbols that Triton's libtriton.so also defines. Triton loaded after
+# TensorFlow binds to TensorFlow's LLVM and segfaults, so load it first.
+if importlib.util.find_spec("triton") is not None:
+    import triton  # noqa: F401
 
 
 @pytest.fixture

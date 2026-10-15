@@ -63,9 +63,12 @@ pip install -e ".[all,dev]"
 # Run tests
 pytest
 
-# Run linting
-ruff check src/ tests/
+# Run linting and the format check CI runs
+ruff check .
+ruff format --check .
 ```
+
+CI runs on every non-draft pull request: ruff and the test suite with all extras (Quick). Add the `ci:full` label to run the tests on Python 3.10–3.13 with coverage and the SonarCloud analysis (Full); Full also runs on every push to `main`.
 
 ## Coding Standards
 

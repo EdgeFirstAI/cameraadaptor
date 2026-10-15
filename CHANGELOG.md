@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `edgefirst.cameraadaptor.tiling`: the input tiling core shared by the PyTorch and TensorFlow trainers (TILING.md §3–§6), in NumPy. It provides the window sampler, epoch plan, target rules, EvenDist grid, lift and keep-best merge (bit-exact with HAL), the `tiling` metadata block, its conformance checks and sampler statistics. `frames_per_batch` sizes validation batches to a tile budget. `tiling.pixels` (window rendering) needs the `transform` extra.
+- `edgefirst.cameraadaptor.pytorch.tiling`: tile rendering, per-tile targets and frame merge on tensors for tiled validation (`torch` extra).
+- TILING.md: the input tiling specification and usage guide; README gains an Input Tiling section.
+
+### Fixed
+
+- `check_torch_available`, `check_tensorflow_available`, `check_lightning_available` and `check_opencv_available` look for the package without importing it, so checking for a framework no longer loads it.
+- The test suite no longer segfaults when TensorFlow and Triton are both installed. TensorFlow exports its LLVM and MLIR symbols globally, and Triton loaded afterwards binds to them and crashes, so the tests load Triton first.
+
 ## [0.1.2] - 2026-01-29
 
 ### Added
