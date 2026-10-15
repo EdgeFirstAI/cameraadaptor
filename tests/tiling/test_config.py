@@ -11,11 +11,15 @@ def test_defaults_match_spec_table():
         0.15,
         0.10,
     )
-    assert cfg.grid_prob == 0.25 and cfg.cut_prob == 0.1
-    assert cfg.scale.native_prob == 0.5 and cfg.scale.range == (0.75, 1.333)
-    assert cfg.targets.min_visibility == 0.25 and cfg.targets.min_box_px == 2.0
+    assert cfg.grid_prob == 0.25
+    assert cfg.cut_prob == 0.1
+    assert cfg.scale.native_prob == 0.5
+    assert cfg.scale.range == (0.75, 1.333)
+    assert cfg.targets.min_visibility == 0.25
+    assert cfg.targets.min_box_px == 2.0
     assert cfg.targets.truncation == "drop"
-    assert cfg.final_phase_epochs == 10 and cfg.grid_min_overlap == 0.1
+    assert cfg.final_phase_epochs == 10
+    assert cfg.grid_min_overlap == 0.1
 
 
 def test_windows_per_frame_is_gone():
@@ -32,8 +36,10 @@ def test_from_dict_accepts_nested_and_dotted_keys():
         }
     )
     assert cfg.tile_size == (320, 320)
-    assert cfg.mix.positive == 0.6 and cfg.mix.background == 0.15
-    assert cfg.scale.native_prob == 1.0 and cfg.scale.range == (0.8, 1.25)
+    assert cfg.mix.positive == 0.6
+    assert cfg.mix.background == 0.15
+    assert cfg.scale.native_prob == 1.0
+    assert cfg.scale.range == (0.8, 1.25)
 
 
 def test_round_trip():
@@ -78,8 +84,9 @@ def test_mix_shares_redistribute():
 
 def test_batch_sampling_defaults():
     cfg = TilingConfig()
-    assert cfg.frames_per_batch == 4 and cfg.placement_candidates == 4
-    assert SPEC_VERSION == "3.1"
+    assert cfg.frames_per_batch == 4
+    assert cfg.placement_candidates == 4
+    assert SPEC_VERSION == "3.3"
 
 
 @pytest.mark.parametrize(

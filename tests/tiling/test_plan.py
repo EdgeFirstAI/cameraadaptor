@@ -30,7 +30,8 @@ def test_gt_extent_counts_grid_tiles_touched_by_boxes():
         (640, 640),
         0.1,
     )
-    assert one >= 1 and spread > one
+    assert one >= 1
+    assert spread > one
 
 
 def test_batch_layout():
@@ -49,7 +50,8 @@ def test_batch_layout():
 def test_frames_per_batch_at_batch_matches_untiled_steps(frames, batch):
     layout = batch_layout(frames, batch, batch)
     assert len(layout) == -(-frames // batch)
-    assert all(n == batch for n in layout[:-1]) and layout[-1] <= batch
+    assert all(n == batch for n in layout[:-1])
+    assert layout[-1] <= batch
 
 
 def test_every_frame_once_and_batches_fill():
@@ -64,7 +66,8 @@ def test_every_frame_once_and_batches_fill():
         assert all(1 <= c <= 2 * N // 4 for c in per_frame.values())
         frames.update(per_frame.keys())
     assert pos == len(plan.tiles) == sum(batch_layout(174, N, 4))
-    assert sorted(frames) == list(range(174)) and set(frames.values()) == {1}
+    assert sorted(frames) == list(range(174))
+    assert set(frames.values()) == {1}
 
 
 def test_frame_slots_are_contiguous_and_numbered():
@@ -175,3 +178,9 @@ def test_groups_carry_the_dataset_background_ratio():
     assert sorted(order) == list(range(300))
     for g in range(0, 300, 4):
         assert sum(ext[f] == 0 for f in order[g : g + 4]) in (1, 2)
+
+
+def test_kinds_of_a_frame_without_tiles_is_empty():
+    plan = plan_epoch([1, 0, 2], 8, TilingConfig(frames_per_batch=3), 0)
+    assert sum(len(plan.kinds(f)) for f in range(3)) == len(plan.tiles)
+    assert plan.kinds(99) == ()

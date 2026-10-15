@@ -13,6 +13,7 @@ STDLIB = {
     "__future__",
     "copy",
     "dataclasses",
+    "functools",
     "math",
     "typing",
     "collections",

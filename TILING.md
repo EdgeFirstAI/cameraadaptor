@@ -129,7 +129,7 @@ o  ~ UniformInteger[ceil(lo), floor(hi)]
 ```
 
 - With `e = 0`, a box smaller than the window lies fully inside it, at a uniformly random offset. A box larger than the window gives a window lying inside the box's span, which keeps its visibility as high as possible.
-- `e` is the **cut extension**. With probability `cut_prob` (default 0.1) a positive window uses `e = 0.5·(b1 - b0)` on both axes, so the anchor may cross the window edge by up to half its size. Visible area stays ≥ 0.25, which is exactly the default `min_visibility` (§3.8), so the anchor always survives.
+- `e` is the **cut extension**. With probability `cut_prob` (default 0.1) a positive window uses `e = 0.5·(b1 - b0)` on each axis where the anchor fits in the window (`b1 - b0 ≤ c`), so the anchor may cross the window edge by up to half its size, and `e = 0` on an axis where it is longer than the window, which a window inside its span already cuts. An anchor that fits keeps at least half its extent on each axis, so its visible area stays ≥ 0.25, which is exactly the default `min_visibility` (§3.8), and it always survives. An anchor longer than the window keeps `c / (b1 - b0)` of that axis, with or without the cut.
 - The interval `[lo, hi]` is never empty for a box inside the frame, so no retries are needed.
 - The origin is drawn uniformly over the **integers** in the interval. That keeps an `e = 0` anchor strictly inside the window, which flooring a continuous draw does not. When the interval holds no integer, the origin is `lo` rounded to the nearest pixel.
 - **The origin is sampled from the feasible interval, never clamped afterwards.** Clamping a sampled origin piles probability onto the frame border and recreates a positional bias.
@@ -143,7 +143,7 @@ Objects near the frame border end up near the window border with the same probab
 - A grid-snapped positive (below) likewise takes the best of `placement_candidates` randomly chosen eligible grid tiles.
 - `placement_candidates: 1` reproduces the single uniform draw exactly.
 
-**Grid snapping.** With probability `grid_prob` (default 0.25), a positive window is instead a **deployment grid tile** (§6.3, with `grid_min_overlap`) chosen among the grid tiles in which the anchor's visible area is at least `min_visibility`. Grid windows are always at `s = 1` and carry `grid_index`. They show the model the exact seams and tile positions it meets at deployment.
+**Grid snapping.** With probability `grid_prob` (default 0.25), a positive window is instead a **deployment grid tile** (§6.3, with `grid_min_overlap`) chosen among the grid tiles in which the anchor is visible and its visible area is at least `min_visibility`. Grid windows are always at `s = 1` and carry `grid_index`. They show the model the exact seams and tile positions it meets at deployment.
 
 ### 3.4 Background windows and hard negatives
 
@@ -222,7 +222,7 @@ A box counts as **clipped** when step 1 changed it. The clipped-box share is a r
 | `class_balance` | `none` | `none` or `rfs`: repeat-factor sampling over frames with threshold `rfs_t` (default 0.001), computed by `repeat_factors` |
 | `seed` | 0 | Set from the trainer seed (§3.11) |
 
-`SPEC_VERSION` (`"3.1"`) is the sampler specification version recorded in the metadata `training` record (§6.1). It changes only when sampled windows change.
+`SPEC_VERSION` (`"3.3"`) is the sampler specification version recorded in the metadata `training` record (§6.1). It changes only when sampled windows change.
 
 ### 3.10 Sampler statistics
 
@@ -237,7 +237,7 @@ A box counts as **clipped** when step 1 changed it. The clipped-box share is a r
 | `native_share` | About `native_prob`; 1 in the final phase |
 | `empty_rate`, `boxes_per_tile`, `objects_per_positive_tile`, `dropped_*_per_tile`, `decodes_per_sample` | Informational |
 | `anchor_histogram()` (8×8, tile coordinates) | Flat away from the frame border |
-| `objects_histogram()`, `scale_histogram()` (`ln s`) | Informational; the scale histogram is symmetric around 0 with half the mass at 0 |
+| `objects_histogram()`, `scale_histogram()` | Informational. The scale histogram bins `ln(1/s)`, the apparent object scale, over resampled windows only (native windows are counted by `native_share`); it is symmetric around 0 |
 | `tiles_per_frame_mean` / `min` / `max`, `background_frame_share`, `planned_*_share` (from the plan) | The plan's allocation before any fallback |
 
 ### 3.11 Determinism
@@ -366,7 +366,7 @@ tiling:
   training:                      # how the weights were trained; copied unchanged by later exports
     session: t-1a2b
     sampler: edgefirst-tiling
-    version: "3.1"               # SPEC_VERSION of the sampler
+    version: "3.3"               # SPEC_VERSION of the sampler
     params: {}                   # the §3.9 configuration as trained
   export:                        # how this model was produced
     session: t-3c4d
@@ -639,7 +639,7 @@ Every name in the first nine rows is also exported from `edgefirst.cameraadaptor
 
 ## Changelog
 
-- **3.3** (draft, 2026-10-15) — The specification now documents the shared CameraAdaptor implementation: `edgefirst.cameraadaptor.tiling` (NumPy) and `edgefirst.cameraadaptor.pytorch.tiling`, with usage examples (§7) and a module reference (§10). Trainer-specific implementation plans, HAL GPU preprocessing plans and experiment tracking are removed. The sampler is unchanged, so `SPEC_VERSION` stays `"3.1"`.
+- **3.3** (draft, 2026-10-15) — The specification now documents the shared CameraAdaptor implementation: `edgefirst.cameraadaptor.tiling` (NumPy) and `edgefirst.cameraadaptor.pytorch.tiling`, with usage examples (§7) and a module reference (§10). Trainer-specific implementation plans, HAL GPU preprocessing plans and experiment tracking are removed. The cut extension applies only on an axis where the anchor fits in the window, so an oversized anchor is never left out of its window, and grid snapping requires the anchor to be visible even when `min_visibility` is 0. Both change sampled windows in those cases, so `SPEC_VERSION` becomes `"3.3"`.
 - **3.2** (draft, 2026-10-08) — Validation runs at the deployed geometry on every frame, and one multi-label protocol (IoU 0.7 whole frame, 0.5 per tile, `max_det` 300, 30,000 candidates) replaces the single-label rule. Whole-frame export sizes must be multiples of 32, and export-only sessions default to `whole_frame`. Validation batches tiles across frames up to a tile budget and reuses the in-memory model.
 - **3.1** (draft, 2026-10-01) — Mixture is an epoch-level tile target. The `frames` epoch visits every frame once, with `frames_per_batch` frames per batch of N tiles, stratified grouping and a 2·N/F per-frame cap. Positive placement takes the best of `placement_candidates`, scored on boxes other than the anchor. Mosaic partners come from earlier visits. A background-drift warning replaces the empty-tile warning.
 - **3.0** (draft, 2026-09-27) — Framework-neutral specification: explicit kind mixture with strictly empty background windows; uniform, unclamped positive placement with cut extension and grid snapping; native-share log-uniform scale with antialiasing and a final native phase; full-frame windows; stricter target rules; seeded determinism; sampler statistics; mosaic on tiles; `epoch_mode`; whole-frame validation; the versioned `tiling` metadata block.

@@ -224,11 +224,12 @@ class _FrameSampler:
         b = self.boxes[a]
         n = self.cfg.placement_candidates
         if self.rng.random() < self.cfg.grid_prob:
+            min_visibility = self.cfg.targets.min_visibility
             cands = [
                 g
                 for g in self.grid()
-                if _visible_fraction(g.rect, b)
-                >= self.cfg.targets.min_visibility
+                if (v := _visible_fraction(g.rect, b)) > 0
+                and v >= min_visibility
             ]
             if cands:
                 g = self._best(
@@ -245,9 +246,13 @@ class _FrameSampler:
             _window_len(s, self.tw, self.fw),
             _window_len(s, self.th, self.fh),
         )
+        # The cut extension applies on an axis where the anchor fits in the
+        # window; a longer anchor is already cut by a window inside its span,
+        # and extending past it could leave the anchor out entirely.
         cut = self.rng.random() < self.cfg.cut_prob
-        ex = 0.5 * float(b[2] - b[0]) if cut else 0.0
-        ey = 0.5 * float(b[3] - b[1]) if cut else 0.0
+        bw, bh = float(b[2] - b[0]), float(b[3] - b[1])
+        ex = 0.5 * bw if cut and bw <= cw else 0.0
+        ey = 0.5 * bh if cut and bh <= ch else 0.0
         rects = []
         for _ in range(n):
             x = _axis_origin(
@@ -333,8 +338,8 @@ def sample_windows(
     class_repeat=None,
     kinds=None,
 ) -> list[Window]:
-    """Draw windows for one frame. ``valid_rect`` is reserved (§3.4) and
-    ignored.
+    """Draw windows for one frame. ``valid_rect`` (x, y, w, h) is reserved
+    (§3.4): it is checked but does not yet constrain background windows.
 
     ``kinds`` lists the window kind of each draw (the epoch plan, §4.2).
     Without it, ``k`` kinds are drawn from ``cfg.mix`` for this frame alone
@@ -342,6 +347,10 @@ def sample_windows(
     """
     if phase not in ("main", "final"):
         raise ValueError(f"phase must be main or final, got {phase!r}")
+    if valid_rect is not None and np.asarray(valid_rect).shape != (4,):
+        raise ValueError(
+            f"valid_rect must be (x, y, w, h), got {valid_rect!r}"
+        )
     boxes = np.asarray(boxes_xyxy, dtype=np.float32).reshape(-1, 4)
     classes = np.asarray(classes, dtype=np.int32).reshape(-1)
     final = phase == "final"

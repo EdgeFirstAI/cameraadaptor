@@ -49,8 +49,12 @@ def test_grid_is_row_major_and_inside_frame():
     ]
     for p in grid:
         x, y, w, h = p.rect
-        assert x >= 0 and x + w <= 1920 and y >= 0 and y + h <= 1080
-        assert p.content is None and p.letterbox is None
+        assert x >= 0
+        assert x + w <= 1920
+        assert y >= 0
+        assert y + h <= 1080
+        assert p.content is None
+        assert p.letterbox is None
 
 
 def test_small_frame_single_letterboxed_tile():

@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, fields
 from typing import Any
 
-SPEC_VERSION = "3.1"
+SPEC_VERSION = "3.3"
 KINDS = ("positive", "background", "full_frame")
 
 
@@ -68,6 +68,40 @@ class TargetRules:
 _NESTED = {"mix": Mix, "scale": ScaleConfig, "targets": TargetRules}
 
 
+def _nest(data: Mapping[str, Any]) -> dict[str, Any]:
+    """Fold dotted keys (``"mix.positive"``) into nested mappings."""
+    nested: dict[str, Any] = {}
+    for key, value in data.items():
+        head, _, tail = key.partition(".")
+        if tail:
+            nested.setdefault(head, {})[tail] = value
+        elif isinstance(value, Mapping):
+            nested.setdefault(key, {}).update(value)
+        else:
+            nested[key] = value
+    return nested
+
+
+def _unknown_keys(nested: Mapping[str, Any], names: set[str]) -> list[str]:
+    unknown = sorted(set(nested) - names)
+    for key, sub in _NESTED.items():
+        if key in nested:
+            allowed = {f.name for f in fields(sub)}
+            unknown += sorted(f"{key}.{k}" for k in set(nested[key]) - allowed)
+    return unknown
+
+
+def _field(key: str, value: Any) -> Any:
+    """Constructor value for one top-level field."""
+    if key == "tile_size":
+        return _pair(value)
+    if key not in _NESTED:
+        return value
+    if key == "scale" and "range" in value:
+        value = {**value, "range": tuple(float(v) for v in value["range"])}
+    return _NESTED[key](**value)
+
+
 @dataclass(frozen=True)
 class TilingConfig:
     """The §3.9 configuration shared by every trainer.
@@ -99,38 +133,11 @@ class TilingConfig:
     @classmethod
     def from_dict(cls, data: Mapping[str, Any] | None) -> TilingConfig:
         """Build from nested mappings or dotted keys (``"mix.positive"``)."""
-        nested: dict[str, Any] = {}
-        for key, value in (data or {}).items():
-            head, _, tail = key.partition(".")
-            if tail:
-                nested.setdefault(head, {})[tail] = value
-            elif isinstance(value, Mapping):
-                nested.setdefault(key, {}).update(value)
-            else:
-                nested[key] = value
-        unknown = sorted(set(nested) - {f.name for f in fields(cls)})
-        kwargs: dict[str, Any] = {}
-        for key, value in nested.items():
-            if key in _NESTED:
-                sub = _NESTED[key]
-                unknown += sorted(
-                    f"{key}.{k}"
-                    for k in set(value) - {f.name for f in fields(sub)}
-                )
-                if key == "scale" and "range" in value:
-                    value = {
-                        **value,
-                        "range": tuple(float(v) for v in value["range"]),
-                    }
-                if not unknown:
-                    kwargs[key] = sub(**value)
-            elif key == "tile_size":
-                kwargs[key] = _pair(value)
-            elif key not in unknown:
-                kwargs[key] = value
+        nested = _nest(data or {})
+        unknown = _unknown_keys(nested, {f.name for f in fields(cls)})
         if unknown:
             raise ValueError(f"unknown tiling parameters: {unknown}")
-        cfg = cls(**kwargs)
+        cfg = cls(**{key: _field(key, v) for key, v in nested.items()})
         cfg.validate()
         return cfg
 

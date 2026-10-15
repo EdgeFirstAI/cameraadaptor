@@ -148,6 +148,22 @@ def test_snapshot_geometry_accepts_numpy_sizes():
 
 
 @pytest.mark.parametrize(
+    "grid",
+    [
+        {"algorithm": "evendist", "min_overlap": 0.1},
+        {"algorithm": "evendist", "version": 2, "min_overlap": 0.1},
+        {"algorithm": "evendist", "version": 1},
+        {"algorithm": "evendist", "version": 1, "min_overlap": 1.0},
+        {"algorithm": "evendist", "version": 1, "min_overlap": -0.1},
+    ],
+)
+def test_tiled_snapshot_grid_is_fully_checked(grid):
+    params = {"input_shape": [640, 640], "resize": "tiled", "grid": grid}
+    with pytest.raises(ContractError, match="calibration snapshot grid"):
+        check_snapshot_geometry(params, [640, 640], [640, 640], "tiled")
+
+
+@pytest.mark.parametrize(
     "bad", [None, [640.0, 640], ["640", 640], "640", [640], [640, 640, 3]]
 )
 @pytest.mark.parametrize(
@@ -177,12 +193,11 @@ def test_unsupported_version_is_a_distinct_contract_error():
         validate_tiling_block(metadata)
     assert issubclass(UnsupportedVersion, ContractError)
     for bad in ("1", 1.0, None):
+        metadata = merge_patch(
+            VALID["tiled_as_trained"], {"tiling": {"version": bad}}
+        )
         with pytest.raises(ContractError) as info:
-            validate_tiling_block(
-                merge_patch(
-                    VALID["tiled_as_trained"], {"tiling": {"version": bad}}
-                )
-            )
+            validate_tiling_block(metadata)
         assert not isinstance(info.value, UnsupportedVersion)
 
 
@@ -211,8 +226,9 @@ def _without(metadata, path):
     ids=".".join,
 )
 def test_every_v1_key_is_required(path):
+    metadata = _without(VALID["whole_frame_reexport"], path)
     with pytest.raises(ContractError):
-        validate_tiling_block(_without(VALID["whole_frame_reexport"], path))
+        validate_tiling_block(metadata)
 
 
 def test_optional_keys_may_be_omitted():

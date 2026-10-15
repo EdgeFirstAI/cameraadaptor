@@ -46,4 +46,5 @@ def test_letterbox_pads_with_114_centred():
         f, (0, 0, 400, 300), (640, 640), content=(0, 80, 640, 480)
     )
     assert out.shape == (640, 640, 3)
-    assert (out[:80] == 114).all() and (out[560:] == 114).all()
+    assert (out[:80] == 114).all()
+    assert (out[560:] == 114).all()

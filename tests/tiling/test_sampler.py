@@ -6,6 +6,7 @@ import pytest
 from edgefirst.cameraadaptor.tiling import (
     Mix,
     ScaleConfig,
+    TargetRules,
     TilingConfig,
     make_rng,
     repeat_factors,
@@ -78,8 +79,12 @@ def test_containment_over_random_frames():
             k=4,
         ):
             x, y, ww, hh = w.rect
-            assert x >= 0 and y >= 0 and x + ww <= fw and y + hh <= fh
-            assert np.all(w.boxes >= -1e-4) and np.all(w.boxes <= T + 1e-4)
+            assert x >= 0
+            assert y >= 0
+            assert x + ww <= fw
+            assert y + hh <= fh
+            assert np.all(w.boxes >= -1e-4)
+            assert np.all(w.boxes <= T + 1e-4)
 
 
 def test_no_centre_bias_and_centred_sampler_fails():
@@ -189,7 +194,35 @@ def test_cut_extension_keeps_quarter_visibility():
         ih = min(b[3], y + hh) - max(b[1], y)
         vis.append(iw * ih / 10_000)
         assert len(w.boxes) == 1
-    assert min(vis) >= 0.25 and min(vis) < 1.0
+    assert min(vis) >= 0.25
+    assert min(vis) < 1.0
+
+
+def test_cut_extension_never_misses_an_anchor_longer_than_the_window():
+    b = [1000, 1000, 2400, 1100]  # 1400 px wide, the window is 640
+    windows = sample_windows(
+        (2160, 3840),
+        [b],
+        [0],
+        _cfg(cut_prob=1.0),
+        np.random.default_rng(7),
+        k=2000,
+    )
+    for w in windows:
+        x, y, ww, hh = w.rect
+        assert x >= b[0]
+        assert x + ww <= b[2]
+        assert _hits(w.rect, [b])[0]
+
+
+def test_grid_snapping_needs_the_anchor_visible():
+    b = [[1000, 500, 1030, 530]]
+    cfg = _cfg(grid_prob=1.0, targets=TargetRules(min_visibility=0.0))
+    for w in sample_windows(
+        (2160, 3840), b, [0], cfg, np.random.default_rng(8), k=500
+    ):
+        assert w.grid_index is not None
+        assert _hits(w.rect, b)[0]
 
 
 def test_scale_rule_and_final_phase():
@@ -227,7 +260,8 @@ def test_small_frame_gives_single_letterboxed_window():
         np.random.default_rng(9),
         k=20,
     ):
-        assert w.rect == (0, 0, 400, 300) and w.content == (0, 80, 640, 480)
+        assert w.rect == (0, 0, 400, 300)
+        assert w.content == (0, 80, 640, 480)
         np.testing.assert_allclose(w.boxes, [[160, 240, 320, 320]])
 
 
@@ -270,7 +304,10 @@ def test_hard_regions_place_background_windows():
         hard_regions=hard,
     ):
         x, y, ww, hh = w.rect
-        assert x <= 3000 and x + ww >= 3050 and y <= 1500 and y + hh >= 1550
+        assert x <= 3000
+        assert x + ww >= 3050
+        assert y <= 1500
+        assert y + hh >= 1550
 
 
 def test_grid_snapping_uses_deployment_grid():
@@ -283,7 +320,8 @@ def test_grid_snapping_uses_deployment_grid():
         np.random.default_rng(12),
         k=100,
     ):
-        assert w.grid_index is not None and w.rect[0] in (0, 427, 853, 1280)
+        assert w.grid_index is not None
+        assert w.rect[0] in (0, 427, 853, 1280)
 
 
 def test_class_balanced_anchors_favour_rare_classes():
@@ -316,27 +354,38 @@ def test_class_balanced_anchors_favour_rare_classes():
     )
 
 
-def test_class_balanced_requires_repeat_factors():
-    with pytest.raises(ValueError, match="class_repeat"):
+def test_valid_rect_must_be_a_rectangle():
+    cfg, boxes = _cfg(), [[1000, 500, 1030, 530]]
+    windows = sample_windows(
+        (2160, 3840),
+        boxes,
+        [0],
+        cfg,
+        np.random.default_rng(0),
+        valid_rect=(0, 0, 3840, 2160),
+    )
+    assert len(windows) == 1
+    rng = np.random.default_rng(0)
+    with pytest.raises(ValueError, match="valid_rect"):
         sample_windows(
-            (1080, 1920),
-            [[0, 0, 10, 10]],
-            [0],
-            _cfg(anchor_weighting="class_balanced"),
-            np.random.default_rng(0),
-            k=1,
+            (2160, 3840), boxes, [0], cfg, rng, valid_rect=(0, 0, 64)
         )
+
+
+def test_class_balanced_requires_repeat_factors():
+    cfg = _cfg(anchor_weighting="class_balanced")
+    rng = np.random.default_rng(0)
+    with pytest.raises(ValueError, match="class_repeat"):
+        sample_windows((1080, 1920), [[0, 0, 10, 10]], [0], cfg, rng, k=1)
 
 
 def test_repeat_factors():
     rf = repeat_factors(
         [np.array([0]), np.array([0, 1]), np.array([0])], 3, t=0.5
     )
-    assert (
-        rf[0] == 1.0
-        and rf[1] == pytest.approx(math.sqrt(0.5 / (1 / 3)))
-        and rf[2] == 1.0
-    )
+    assert rf[0] == 1.0
+    assert rf[1] == pytest.approx(math.sqrt(0.5 / (1 / 3)))
+    assert rf[2] == 1.0
 
 
 def test_explicit_kinds_are_drawn_in_order():
@@ -354,15 +403,9 @@ def test_explicit_kinds_are_drawn_in_order():
 
 
 def test_explicit_kinds_reject_positive_without_ground_truth():
+    cfg, rng = TilingConfig(), make_rng(0, 0, 0, 0)
     with pytest.raises(ValueError, match="ground truth"):
-        sample_windows(
-            (2160, 3840),
-            [],
-            [],
-            TilingConfig(),
-            make_rng(0, 0, 0, 0),
-            kinds=["positive"],
-        )
+        sample_windows((2160, 3840), [], [], cfg, rng, kinds=["positive"])
     got = sample_windows(
         (2160, 3840),
         [],

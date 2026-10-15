@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `edgefirst.cameraadaptor.pytorch.tiling`: tile rendering, per-tile targets and frame merge on tensors for tiled validation (`torch` extra).
 - TILING.md: the input tiling specification and usage guide; README gains an Input Tiling section.
 
+### Changed
+
+- NumPy 1.25 or newer is required (was 1.21); the tiling sampler uses `Generator.spawn`.
+
 ### Fixed
 
 - `check_torch_available`, `check_tensorflow_available`, `check_lightning_available` and `check_opencv_available` look for the package without importing it, so checking for a framework no longer loads it.

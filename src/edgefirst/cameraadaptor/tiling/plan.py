@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import cached_property
 
 import numpy as np
 
@@ -37,8 +38,16 @@ class EpochPlan:
     background_frames: int
     frames: int
 
+    @cached_property
+    def _kinds_by_frame(self) -> dict[int, tuple[str, ...]]:
+        by_frame: dict[int, list[str]] = {}
+        for t in self.tiles:
+            by_frame.setdefault(t.frame, []).append(t.kind)
+        return {frame: tuple(kinds) for frame, kinds in by_frame.items()}
+
     def kinds(self, frame: int) -> tuple[str, ...]:
-        return tuple(t.kind for t in self.tiles if t.frame == frame)
+        """Kinds of ``frame``'s tiles in slot order; empty if it has none."""
+        return self._kinds_by_frame.get(int(frame), ())
 
     def summary(self) -> dict[str, float]:
         counts = np.bincount(

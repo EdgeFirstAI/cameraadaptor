@@ -79,7 +79,9 @@ def test_merge_empty():
     b, s, c = merge_tiled_detections(
         np.zeros((0, 4)), np.zeros(0), np.zeros(0, int)
     )
-    assert b.shape == (0, 4) and s.shape == (0,) and c.shape == (0,)
+    assert b.shape == (0, 4)
+    assert s.shape == (0,)
+    assert c.shape == (0,)
 
 
 @pytest.mark.parametrize("case", GOLDEN["hal_random"] or [None])
@@ -123,4 +125,6 @@ def test_merge_below_score_threshold_is_empty():
         np.array([0]),
         score_threshold=0.5,
     )
-    assert b.shape == (0, 4) and len(s) == 0 and len(c) == 0
+    assert b.shape == (0, 4)
+    assert len(s) == 0
+    assert len(c) == 0

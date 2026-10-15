@@ -49,26 +49,27 @@ def plan_frame(frame_hw, pad_xy, tile_hw, min_overlap: float) -> FramePlan:
 def render_tiles(
     img: torch.Tensor, plan: FramePlan, pad_value: float = 114 / 255
 ) -> torch.Tensor:
-    """Cut every grid tile from a ``[1, C, Hp, Wp]`` validator input."""
+    """Cut every grid tile from a ``[1, C, Hp, Wp]`` validator input.
+
+    A grid crop is never larger than its tile, so a crop that does not match
+    the tile is only ever upscaled: into its letterbox content, or onto the
+    whole tile when ``content`` is ``None``.
+    """
     (h, w), (px, py) = plan.frame_hw, plan.pad
     frame = img[0, :, py : py + h, px : px + w]
     tiles = []
     for p in plan.tiles:
         x, y = p.origin
         cw, ch = p.crop_size
+        th, tw = p.tile_hw
         crop = frame[:, y : y + ch, x : x + cw]
-        if p.content is None:
+        if p.content is None and (cw, ch) == (tw, th):
             tiles.append(crop)
             continue
-        th, tw = p.tile_hw
-        left, top, nw, nh = p.content
+        left, top, nw, nh = p.content or (0, 0, tw, th)
         tile = crop.new_full((crop.shape[0], th, tw), pad_value)
         tile[:, top : top + nh, left : left + nw] = F.interpolate(
-            crop[None],
-            size=(nh, nw),
-            mode="bilinear",
-            align_corners=False,
-            antialias=nw < cw or nh < ch,
+            crop[None], size=(nh, nw), mode="bilinear", align_corners=False
         )[0]
         tiles.append(tile)
     return torch.stack(tiles)
@@ -82,7 +83,14 @@ def tile_targets(
 ):
     """Per-tile targets in Ultralytics batch layout (``batch_idx``, ``cls``
     [n,1], normalised xywh).
+
+    ``truncation="ignore"`` is rejected: its ignore regions have no place in
+    this layout and would be scored as background.
     """
+    if rules.truncation == "ignore":
+        raise ValueError(
+            "tile_targets does not support targets.truncation 'ignore'"
+        )
     idx, cls, boxes = [], [], []
     for i, p in enumerate(plan.tiles):
         r = crop_targets(

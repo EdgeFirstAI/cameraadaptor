@@ -40,6 +40,49 @@ def lift_tile_boxes(boxes_norm, placement: TilePlacement) -> np.ndarray:
     ).astype(np.float32)
 
 
+def _ordered_corners(b: np.ndarray) -> np.ndarray:
+    """xyxy with x0 <= x1 and y0 <= y1."""
+    return np.stack(
+        [
+            np.minimum(b[:, 0], b[:, 2]),
+            np.minimum(b[:, 1], b[:, 3]),
+            np.maximum(b[:, 0], b[:, 2]),
+            np.maximum(b[:, 1], b[:, 3]),
+        ],
+        axis=1,
+    )
+
+
+def _class_groups(c: np.ndarray, class_agnostic: bool):
+    """Merge groups, and each box's group and index within it."""
+    n = len(c)
+    groups = (
+        [np.arange(n)]
+        if class_agnostic
+        else [np.flatnonzero(c == k) for k in np.unique(c)]
+    )
+    group_of = np.empty(n, dtype=np.int64)
+    local = np.empty(n, dtype=np.int64)
+    for g, members in enumerate(groups):
+        group_of[members] = g
+        local[members] = np.arange(len(members))
+    return groups, group_of, local
+
+
+def _union(box, score, hit_boxes, hit_scores):
+    """Enclosing box of a group at the group's maximum score."""
+    box = np.array(
+        [
+            min(box[0], hit_boxes[:, 0].min()),
+            min(box[1], hit_boxes[:, 1].min()),
+            max(box[2], hit_boxes[:, 2].max()),
+            max(box[3], hit_boxes[:, 3].max()),
+        ],
+        dtype=np.float32,
+    )
+    return box, max(score, hit_scores.max())
+
+
 def merge_tiled_detections(
     boxes,
     scores,
@@ -71,28 +114,11 @@ def merge_tiled_detections(
     c = np.asarray(classes).reshape(-1)
     if len(b) == 0:
         return b, s, c
-    b = np.stack(
-        [
-            np.minimum(b[:, 0], b[:, 2]),
-            np.minimum(b[:, 1], b[:, 3]),
-            np.maximum(b[:, 0], b[:, 2]),
-            np.maximum(b[:, 1], b[:, 3]),
-        ],
-        axis=1,
-    )
+    b = _ordered_corners(b)
     area = np.maximum(b[:, 2] - b[:, 0], 0) * np.maximum(b[:, 3] - b[:, 1], 0)
     order = np.lexsort((np.arange(len(b)), -s))
     thr, eps = np.float32(threshold), np.float32(1e-9)
-    groups = (
-        [np.arange(len(b))]
-        if class_agnostic
-        else [np.flatnonzero(c == k) for k in np.unique(c)]
-    )
-    group_of = np.empty(len(b), dtype=np.int64)
-    local = np.empty(len(b), dtype=np.int64)
-    for g, members in enumerate(groups):
-        group_of[members] = g
-        local[members] = np.arange(len(members))
+    groups, group_of, local = _class_groups(c, class_agnostic)
     boxes_of = [b[m] for m in groups]
     area_of = [area[m] for m in groups]
     hits = [
@@ -118,22 +144,12 @@ def merge_tiled_detections(
             )[0]
         )
         # Every unclaimed box comes later in score order, so claiming all
-        # unclaimed overlaps
-        # claims exactly the later ones.
+        # unclaimed overlaps claims exactly the later ones.
         hit = members[row & ~used[members]]
         used[hit] = True
         box, score = b[i].copy(), s[i]
         if mode == "union" and len(hit):
-            box = np.array(
-                [
-                    min(box[0], b[hit, 0].min()),
-                    min(box[1], b[hit, 1].min()),
-                    max(box[2], b[hit, 2].max()),
-                    max(box[3], b[hit, 3].max()),
-                ],
-                dtype=np.float32,
-            )
-            score = max(score, s[hit].max())
+            box, score = _union(box, score, b[hit], s[hit])
         out_b.append(box)
         out_s.append(score)
         out_c.append(c[i])

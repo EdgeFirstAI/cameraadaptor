@@ -28,14 +28,34 @@ def test_small_frame_tile_is_letterboxed_with_pad_value():
     plan = plan_frame((100, 160), (0, 14), 320, 0.1)
     (tile,) = render_tiles(img, plan)
     left, top, w, h = plan.tiles[0].content
-    assert top > 0 and torch.all(tile[:, :top] == 114 / 255)
+    assert top > 0
+    assert torch.all(tile[:, :top] == 114 / 255)
+
+
+def test_small_frame_with_tile_aspect_fills_the_tile():
+    img = torch.full((1, 3, 160, 160), 0.5)
+    plan = plan_frame((160, 160), (0, 0), 320, 0.1)
+    assert plan.tiles[0].content is None
+    (tile,) = render_tiles(img, plan)
+    assert tile.shape == (3, 320, 320)
+    torch.testing.assert_close(tile, torch.full((3, 320, 320), 0.5))
+
+
+def test_tile_targets_reject_ignore_truncation():
+    plan = plan_frame((544, 960), (0, 0), 320, 0.1)
+    boxes = np.array([[10, 10, 40, 40]], np.float32)
+    classes = np.array([0])
+    rules = TargetRules(truncation="ignore")
+    with pytest.raises(ValueError, match="ignore"):
+        tile_targets(boxes, classes, plan, rules)
 
 
 def test_tile_targets_follow_the_grid():
     plan = plan_frame((544, 960), (0, 0), 320, 0.1)
     boxes = np.array([[10, 10, 40, 40]], np.float32)
     idx, cls, bboxes = tile_targets(boxes, np.array([0]), plan, TargetRules())
-    assert idx.tolist() == [0.0] and cls.shape == (1, 1)
+    assert idx.tolist() == [0.0]
+    assert cls.shape == (1, 1)
     torch.testing.assert_close(
         bboxes, torch.tensor([[25 / 320, 25 / 320, 30 / 320, 30 / 320]])
     )
@@ -73,7 +93,8 @@ def test_merge_frame_lifts_merges_and_adds_pad():
 def test_1080p_frame_fits_a_1088_high_tile():
     plan = plan_frame((1080, 1920), (0, 0), (1088, 1920), 0.1)
     (tile,) = plan.tiles
-    assert tile.crop_size == (1920, 1080) and tile.content == (
+    assert tile.crop_size == (1920, 1080)
+    assert tile.content == (
         0,
         4,
         1920,

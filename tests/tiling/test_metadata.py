@@ -21,7 +21,8 @@ def _doc(block, hw):
 def test_fresh_block_is_a_valid_tiled_section():
     block = build_tiling_block(CFG, session="t-1a2b")
     validate_tiling_block(_doc(block, (640, 640)))
-    assert block["mode"] == "tiled" and block["tile"] == [640, 640]
+    assert block["mode"] == "tiled"
+    assert block["tile"] == [640, 640]
     assert block["training"] == {
         "session": "t-1a2b",
         "sampler": "edgefirst-tiling",
@@ -36,7 +37,8 @@ def test_fresh_block_is_a_valid_tiled_section():
             "full_frame": False,
         },
     }
-    assert "enabled" not in block and "deployment_hint" not in block
+    assert "enabled" not in block
+    assert "deployment_hint" not in block
     assert block["grid"] == {
         "algorithm": "evendist",
         "version": 1,
@@ -68,10 +70,8 @@ def test_rejects_unknown_enumerations(kw):
 
 def test_full_frame_flag_reaches_the_calibration_record():
     block = build_tiling_block(CFG, session="t-1", full_frame=True)
-    assert (
-        block["full_frame"]["enabled"] is True
-        and block["export"]["calibration"]["full_frame"] is True
-    )
+    assert block["full_frame"]["enabled"] is True
+    assert block["export"]["calibration"]["full_frame"] is True
     validate_tiling_block(_doc(block, (640, 640)))
 
 
@@ -87,7 +87,8 @@ def test_whole_frame_reexport_keeps_training_and_tile():
     )
     validate_tiling_block(_doc(block, (2176, 3840)))
     assert source == before
-    assert block["mode"] == "whole_frame" and block["tile"] == [640, 640]
+    assert block["mode"] == "whole_frame"
+    assert block["tile"] == [640, 640]
     assert block["training"] == source["training"]
     assert block["full_frame"]["enabled"] is False
     assert block["export"] == {
@@ -111,10 +112,8 @@ def test_tiled_reexport_takes_the_new_tile():
         weights_from="t-1a2b",
     )
     validate_tiling_block(_doc(block, (1280, 1280)))
-    assert (
-        block["tile"] == [1280, 1280]
-        and block["full_frame"]["enabled"] is True
-    )
+    assert block["tile"] == [1280, 1280]
+    assert block["full_frame"]["enabled"] is True
     assert block["export"]["calibration"] == {
         "resize": "tiled",
         "input_shape": [1280, 1280],
@@ -142,7 +141,6 @@ def test_reexport_keeps_unknown_keys_and_rejects_bad_mode():
 
 
 def test_invalid_session_fails_validation():
+    metadata = _doc(build_tiling_block(CFG, session=""), (640, 640))
     with pytest.raises(ContractError):
-        validate_tiling_block(
-            _doc(build_tiling_block(CFG, session=""), (640, 640))
-        )
+        validate_tiling_block(metadata)

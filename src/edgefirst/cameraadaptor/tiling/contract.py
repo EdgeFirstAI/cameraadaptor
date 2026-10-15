@@ -139,21 +139,21 @@ def model_input_hw(shape: Sequence[int]) -> tuple[int, int]:
     )
 
 
-def validate_tiling_block(metadata: Mapping) -> None:
-    """Raise ContractError unless the `tiling` section (if any) is one a
-    producer may emit.
-
-    In version 1 every key is required except `export.weights_from` and the
-    contents of `training.params`. A version other than 1 raises
-    UnsupportedVersion (a ContractError).
-    """
-    block = metadata.get("tiling")
-    if block is None:
-        return
-    if not isinstance(block, Mapping):
+def _check_grid(grid: Any, what: str) -> None:
+    """EvenDist version 1 with ``min_overlap`` in [0, 1)."""
+    if (
+        not isinstance(grid, Mapping)
+        or grid.get("algorithm") != "evendist"
+        or not _is_version_one(grid.get("version"))
+    ):
+        shown = dict(grid) if isinstance(grid, Mapping) else grid
         raise ContractError(
-            f"tiling must be a mapping; got {type(block).__name__}"
+            f"{what} must be evendist version 1; got {shown!r}"
         )
+    _fraction(grid.get("min_overlap"), f"{what}.min_overlap", below_one=True)
+
+
+def _check_version(block: Mapping) -> None:
     version = block.get("version")
     if not _is_int(version):
         raise ContractError(
@@ -163,6 +163,10 @@ def validate_tiling_block(metadata: Mapping) -> None:
         raise UnsupportedVersion(
             f"tiling.version {version!r} is not supported (expected 1)"
         )
+
+
+def _check_geometry(block: Mapping, metadata: Mapping) -> tuple[int, int]:
+    """Mode, tile and model input agree; returns the model input H,W."""
     mode = block.get("mode")
     _one_of(mode, MODES, "tiling.mode")
     tile = _hw(block.get("tile"), "tiling.tile")
@@ -184,19 +188,10 @@ def validate_tiling_block(metadata: Mapping) -> None:
             f"whole_frame input H,W {list(input_hw)} must be a multiple of "
             f"{STRIDE}"
         )
+    return input_hw
 
-    grid = _mapping(block, "grid", "tiling.grid")
-    if grid.get("algorithm") != "evendist" or not _is_version_one(
-        grid.get("version")
-    ):
-        raise ContractError(
-            f"tiling.grid must be evendist version 1; got {dict(grid)!r}"
-        )
-    _fraction(
-        grid.get("min_overlap"), "tiling.grid.min_overlap", below_one=True
-    )
-    _one_of(block.get("fit"), _FIT, "tiling.fit")
-    pad = block.get("pad")
+
+def _check_pad(pad: Any) -> None:
     pad_items = _items(pad, "tiling.pad")
     if len(pad_items) != 3 or not all(
         _is_int(v) and 0 <= v <= 255 for v in pad_items
@@ -205,6 +200,8 @@ def validate_tiling_block(metadata: Mapping) -> None:
             f"tiling.pad must be three integers in [0, 255]; got {pad!r}"
         )
 
+
+def _check_postprocess(block: Mapping) -> None:
     per_tile = _mapping(block, "per_tile", "tiling.per_tile")
     _one_of(per_tile.get("nms"), _PER_TILE_NMS, "tiling.per_tile.nms")
     _fraction(per_tile.get("iou"), "tiling.per_tile.iou")
@@ -221,56 +218,87 @@ def validate_tiling_block(metadata: Mapping) -> None:
             f"tiling.merge.max_det must be a positive integer; got {max_det!r}"
         )
 
+
+def _check_full_frame(block: Mapping) -> bool:
+    """Returns ``full_frame.enabled``."""
     full_frame = _mapping(block, "full_frame", "tiling.full_frame")
-    full_frame_enabled = full_frame.get("enabled")
-    _flag(full_frame_enabled, "tiling.full_frame.enabled")
-    if full_frame_enabled and mode != "tiled":
+    enabled = full_frame.get("enabled")
+    _flag(enabled, "tiling.full_frame.enabled")
+    mode = block.get("mode")
+    if enabled and mode != "tiled":
         raise ContractError(
             f"tiling.full_frame.enabled requires mode tiled; got mode {mode}"
         )
     _fraction(
         full_frame.get("own_above_area"), "tiling.full_frame.own_above_area"
     )
+    return enabled
 
+
+def _check_training(block: Mapping) -> None:
     training = _mapping(block, "training", "tiling.training")
     _session(training.get("session"), "tiling.training.session")
     _text(training.get("sampler"), "tiling.training.sampler")
     _text(training.get("version"), "tiling.training.version")
     _mapping(training, "params", "tiling.training.params")
 
+
+def _check_export(
+    block: Mapping, input_hw: tuple[int, int], full_frame: bool
+) -> None:
     export = _mapping(block, "export", "tiling.export")
     _session(export.get("session"), "tiling.export.session")
     if "weights_from" in export:
         _session(export["weights_from"], "tiling.export.weights_from")
     calibration = _mapping(export, "calibration", "tiling.export.calibration")
+    mode = block.get("mode")
     expected = "tiled" if mode == "tiled" else "letterbox"
     if calibration.get("resize") != expected:
         raise ContractError(
             f"tiling.export.calibration.resize must be {expected!r} for mode "
-            f"{mode}; "
-            f"got {calibration.get('resize')!r}"
+            f"{mode}; got {calibration.get('resize')!r}"
         )
-    if (
-        _hw(
-            calibration.get("input_shape"),
-            "tiling.export.calibration.input_shape",
-        )
-        != input_hw
-    ):
+    shape = calibration.get("input_shape")
+    if _hw(shape, "tiling.export.calibration.input_shape") != input_hw:
         raise ContractError(
-            f"tiling.export.calibration input_shape "
-            f"{calibration.get('input_shape')} does not "
-            f"match the model input {list(input_hw)}"
+            f"tiling.export.calibration input_shape {shape} does not match "
+            f"the model input {list(input_hw)}"
         )
     _flag(
         calibration.get("full_frame"), "tiling.export.calibration.full_frame"
     )
-    if calibration["full_frame"] != full_frame_enabled:
+    if calibration["full_frame"] != full_frame:
         raise ContractError(
             f"tiling.export.calibration.full_frame must equal "
-            f"tiling.full_frame.enabled "
-            f"({full_frame_enabled}); got {calibration['full_frame']}"
+            f"tiling.full_frame.enabled ({full_frame}); "
+            f"got {calibration['full_frame']}"
         )
+
+
+def validate_tiling_block(metadata: Mapping) -> None:
+    """Raise ContractError unless the `tiling` section (if any) is one a
+    producer may emit.
+
+    In version 1 every key is required except `export.weights_from` and the
+    contents of `training.params`. A version other than 1 raises
+    UnsupportedVersion (a ContractError).
+    """
+    block = metadata.get("tiling")
+    if block is None:
+        return
+    if not isinstance(block, Mapping):
+        raise ContractError(
+            f"tiling must be a mapping; got {type(block).__name__}"
+        )
+    _check_version(block)
+    input_hw = _check_geometry(block, metadata)
+    _check_grid(_mapping(block, "grid", "tiling.grid"), "tiling.grid")
+    _one_of(block.get("fit"), _FIT, "tiling.fit")
+    _check_pad(block.get("pad"))
+    _check_postprocess(block)
+    full_frame = _check_full_frame(block)
+    _check_training(block)
+    _check_export(block, input_hw, full_frame)
 
 
 def check_converter_tiling(edgefirst: Any) -> None:
@@ -373,6 +401,7 @@ def check_snapshot_geometry(
                 "tiled calibration snapshot lacks a grid block with algorithm "
                 "evendist"
             )
+        _check_grid(grid, "calibration snapshot grid")
     elif tiling_mode == "whole_frame":
         if resize != "letterbox":
             raise ContractError(
@@ -419,7 +448,7 @@ def parse_session_id(value: str | int) -> int:
                     f"invalid session id {value!r} (expected t-<hex> or a "
                     f"decimal integer)"
                 )
-        elif re.fullmatch(r"[0-9]+", value):
+        elif re.fullmatch(r"\d+", value, re.ASCII):
             number = int(value, 10)
         else:
             raise ContractError(

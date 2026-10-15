@@ -106,6 +106,10 @@ class SamplerStats:
         return self.v[_OBJECTS:_SCALE].copy()
 
     def scale_histogram(self) -> np.ndarray:
+        """Counts of ``ln(1/s)``, the apparent object scale, over
+        ``SCALE_EDGES`` for resampled windows; native windows count as
+        ``native`` instead.
+        """
         return self.v[_SCALE : self.SIZE].copy()
 
     def summary(self) -> dict[str, float]:

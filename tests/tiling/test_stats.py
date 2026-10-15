@@ -27,10 +27,10 @@ def test_summary_reports_shares_and_rates():
     assert s["positive_share"] + s["background_share"] + s[
         "full_frame_share"
     ] == pytest.approx(1.0)
-    assert 0.0 <= s["empty_rate"] <= 1.0 and s["decodes_per_sample"] == 1.0
-    assert s["clipped_share"] >= 0.0 and s["native_share"] == pytest.approx(
-        0.5, abs=0.03
-    )
+    assert 0.0 <= s["empty_rate"] <= 1.0
+    assert s["decodes_per_sample"] == 1.0
+    assert s["clipped_share"] >= 0.0
+    assert s["native_share"] == pytest.approx(0.5, abs=0.03)
 
 
 def test_vector_round_trip_and_add():
@@ -38,10 +38,8 @@ def test_vector_round_trip_and_add():
     a.add("windows", 3)
     b = SamplerStats(a.v)
     b += a
-    assert (
-        b.v[SamplerStats.index("windows")] == 6
-        and len(b.v) == SamplerStats.SIZE
-    )
+    assert b.v[SamplerStats.index("windows")] == 6
+    assert len(b.v) == SamplerStats.SIZE
 
 
 def test_empty_summary_is_zero_not_nan():
