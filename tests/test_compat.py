@@ -1,5 +1,7 @@
 """Tests for compatibility utilities."""
 
+import importlib.util
+
 import pytest
 
 from edgefirst.cameraadaptor._compat import (
@@ -14,6 +16,13 @@ from edgefirst.cameraadaptor._compat import (
     require_tensorflow,
     require_torch,
 )
+
+
+def _skip_unless_installed(module):
+    # Checked without importing: loading TensorFlow here, before PyTorch
+    # Lightning loads in a later test, crashes some framework builds.
+    if importlib.util.find_spec(module) is None:
+        pytest.skip(f"{module} is not installed")
 
 
 class TestPythonVersionChecks:
@@ -76,7 +85,7 @@ class TestRequireFunctions:
 
     def test_require_tensorflow_with_tensorflow_installed(self):
         """Test require_tensorflow passes when tensorflow is installed."""
-        pytest.importorskip("tensorflow")
+        _skip_unless_installed("tensorflow")
         require_tensorflow()  # Should not raise
 
     def test_require_opencv_with_opencv_installed(self):
@@ -95,7 +104,7 @@ class TestCheckFunctionsReturnsTrue:
 
     def test_check_tensorflow_returns_true(self):
         """Test check_tensorflow_available returns True when installed."""
-        pytest.importorskip("tensorflow")
+        _skip_unless_installed("tensorflow")
         assert check_tensorflow_available() is True
 
     def test_check_opencv_returns_true(self):

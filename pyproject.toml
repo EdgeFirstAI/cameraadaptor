@@ -38,7 +38,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "numpy>=1.21.0",
+    "numpy>=1.25.0",
 ]
 
 [project.optional-dependencies]
@@ -79,6 +79,8 @@ where = ["src"]
 [tool.ruff]
 target-version = "py310"
 line-length = 79
+# Markdown examples keep their hand-aligned comments.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]

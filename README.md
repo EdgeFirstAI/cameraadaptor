@@ -41,6 +41,7 @@ graph LR
 | `CameraAdaptor` (PyTorch) | Model layer: Handle format-specific input processing |
 | `CameraAdaptor` (TensorFlow) | Model layer: Handle format-specific input processing |
 | `CameraAdaptorConfig` | Configuration and metadata for model export |
+| `edgefirst.cameraadaptor.tiling` | Input tiling: training window sampler, tiled inference grid and merge, `tiling` model metadata |
 
 ### Important Design Note
 
@@ -245,6 +246,28 @@ from edgefirst.cameraadaptor.pytorch.lightning import create_callback
 callback = create_callback("yuyv")
 trainer = Trainer(callbacks=[callback])
 ```
+
+## Input Tiling
+
+Train a detector on native-resolution tiles of high-resolution frames, then deploy it on the whole frame or on an overlapping tile grid (SAHI). The NumPy core draws training windows, plans each epoch, applies target rules, expands the deployment grid and merges tiled detections bit-exactly with EdgeFirst HAL. It needs no framework: OpenCV (`transform` extra) renders tiles and the `torch` extra adds tensor ops for tiled validation.
+
+```python
+from edgefirst.cameraadaptor.tiling import (
+    TilingConfig,
+    make_rng,
+    sample_windows,
+)
+from edgefirst.cameraadaptor.tiling.pixels import render_window
+
+cfg = TilingConfig.from_dict({"enabled": True, "tile_size": 640})
+rng = make_rng(cfg.seed, epoch, frame_index, 0)
+for w in sample_windows(frame.shape[:2], boxes, classes, cfg, rng, k=4):
+    tile = render_window(frame, w.rect, w.out_hw, w.content, cfg.resize)
+    # tile, w.boxes (xyxy tile pixels) and w.classes feed the framework's
+    # augmentation pipeline
+```
+
+See [TILING.md](TILING.md) for the specification, the epoch plan, tiled validation and the runtime metadata contract.
 
 ## Migration from Existing Code
 

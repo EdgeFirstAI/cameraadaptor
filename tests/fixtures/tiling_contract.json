@@ -1,0 +1,162 @@
+{
+  "notes": "Tiling deployment contract conformance cases (usermanual metadata.md#tiling, conversion/calibration.md#geometry-check). metadata_invalid entries are documents a producer (trainer or converter) must never emit; each applies an RFC 7386 JSON merge patch to the named metadata_valid entry and 'error' is a regular expression searched in the expected error message. Snapshot resize values are letterbox | stretch | tiled. A model without a version-1 tiling section accepts letterbox or stretch snapshots, and tiled snapshots whose params carry a legacy 'tiling' mapping (ModelPack tiled snapshots). Consumers (runtimes) are lenient instead: they ignore unknown keys and, for an unsupported tiling.version, warn and treat the block as absent. converter_tiling entries place 'tiling' at edgefirst['tiling'] (the key is present) and a converter must reject every one with a non-null 'error' (regular expression searched in the message) and accept the null ones; an absent 'tiling' key is always accepted. snapshot_geometry 'error': null means the check must pass, and 'full_frame' is the model's tiling.full_frame.enabled (false when absent).",
+  "metadata_valid": [
+    {
+      "name": "tiled_as_trained",
+      "metadata": {
+        "schema_version": 2,
+        "input": {"shape": [1, 3, 640, 640], "cameraadaptor": "rgb"},
+        "tiling": {
+          "version": 1,
+          "mode": "tiled",
+          "tile": [640, 640],
+          "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1},
+          "fit": "letterbox",
+          "pad": [114, 114, 114],
+          "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001},
+          "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300},
+          "full_frame": {"enabled": false, "own_above_area": 0.02},
+          "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}},
+          "export": {"session": "t-1a2b", "calibration": {"resize": "tiled", "input_shape": [640, 640], "full_frame": false}}
+        }
+      }
+    },
+    {
+      "name": "tiled_with_full_frame_pass",
+      "metadata": {
+        "schema_version": 2,
+        "input": {"shape": [1, 3, 640, 640], "cameraadaptor": "rgb"},
+        "tiling": {
+          "version": 1,
+          "mode": "tiled",
+          "tile": [640, 640],
+          "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1},
+          "fit": "letterbox",
+          "pad": [114, 114, 114],
+          "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001},
+          "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300},
+          "full_frame": {"enabled": true, "own_above_area": 0.02},
+          "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}},
+          "export": {"session": "t-1a2b", "calibration": {"resize": "tiled", "input_shape": [640, 640], "full_frame": true}}
+        }
+      }
+    },
+    {
+      "name": "whole_frame_reexport",
+      "metadata": {
+        "schema_version": 2,
+        "input": {"shape": [1, 3, 2176, 3840], "cameraadaptor": "rgb"},
+        "tiling": {
+          "version": 1,
+          "mode": "whole_frame",
+          "tile": [640, 640],
+          "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1},
+          "fit": "letterbox",
+          "pad": [114, 114, 114],
+          "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001},
+          "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300},
+          "full_frame": {"enabled": false, "own_above_area": 0.02},
+          "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}},
+          "export": {"session": "t-3c4d", "weights_from": "t-1a2b", "calibration": {"resize": "letterbox", "input_shape": [2176, 3840], "full_frame": false}}
+        }
+      }
+    },
+    {
+      "name": "tiled_reexport_1280_nhwc",
+      "metadata": {
+        "schema_version": 2,
+        "input": {"shape": [1, 1280, 1280, 3], "cameraadaptor": "rgb"},
+        "tiling": {
+          "version": 1,
+          "mode": "tiled",
+          "tile": [1280, 1280],
+          "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1},
+          "fit": "letterbox",
+          "pad": [114, 114, 114],
+          "per_tile": {"nms": "none", "iou": 0.5, "score": 0.001},
+          "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300},
+          "full_frame": {"enabled": false, "own_above_area": 0.02},
+          "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}},
+          "export": {"session": "t-3c4e", "weights_from": "t-1a2b", "calibration": {"resize": "tiled", "input_shape": [1280, 1280], "full_frame": false}}
+        }
+      }
+    },
+    {
+      "name": "not_tiled",
+      "metadata": {"schema_version": 2, "input": {"shape": [1, 3, 640, 640], "cameraadaptor": "rgb"}}
+    }
+  ],
+  "metadata_invalid": [
+    {"name": "unsupported_version", "base": "tiled_as_trained", "patch": {"tiling": {"version": 2}}, "error": "version"},
+    {"name": "unknown_mode", "base": "tiled_as_trained", "patch": {"tiling": {"mode": "auto"}}, "error": "mode"},
+    {"name": "tiled_input_not_tile", "base": "tiled_as_trained", "patch": {"input": {"shape": [1, 3, 1280, 1280]}}, "error": "tile"},
+    {"name": "whole_frame_not_stride_multiple", "base": "whole_frame_reexport", "patch": {"input": {"shape": [1, 3, 2160, 3840]}, "tiling": {"export": {"calibration": {"input_shape": [2160, 3840]}}}}, "error": "multiple of 32"},
+    {"name": "missing_training_record", "base": "tiled_as_trained", "patch": {"tiling": {"training": null}}, "error": "training"},
+    {"name": "missing_export_record", "base": "tiled_as_trained", "patch": {"tiling": {"export": null}}, "error": "export"},
+    {"name": "calibration_resize_wrong_for_mode", "base": "tiled_as_trained", "patch": {"tiling": {"export": {"calibration": {"resize": "letterbox"}}}}, "error": "resize"},
+    {"name": "calibration_shape_not_model_input", "base": "whole_frame_reexport", "patch": {"tiling": {"export": {"calibration": {"input_shape": [640, 640]}}}}, "error": "calibration input_shape"},
+    {"name": "unknown_merge_metric", "base": "tiled_as_trained", "patch": {"tiling": {"merge": {"metric": "giou"}}}, "error": "merge.metric"},
+    {"name": "unknown_fit", "base": "tiled_as_trained", "patch": {"tiling": {"fit": "crop"}}, "error": "fit"},
+    {"name": "unknown_per_tile_nms", "base": "tiled_as_trained", "patch": {"tiling": {"per_tile": {"nms": "soft"}}}, "error": "per_tile.nms"},
+    {"name": "tiling_not_mapping", "base": "tiled_as_trained", "patch": {"tiling": [1]}, "error": "tiling must be"},
+    {"name": "tile_not_integers", "base": "tiled_as_trained", "patch": {"tiling": {"tile": [640.5, 640]}}, "error": "tiling.tile"},
+    {"name": "version_bool", "base": "tiled_as_trained", "patch": {"tiling": {"version": true}}, "error": "tiling.version"},
+    {"name": "grid_not_mapping", "base": "tiled_as_trained", "patch": {"tiling": {"grid": "evendist"}}, "error": "tiling.grid"},
+    {"name": "missing_min_overlap", "base": "tiled_as_trained", "patch": {"tiling": {"grid": {"min_overlap": null}}}, "error": "tiling.grid.min_overlap"},
+    {"name": "min_overlap_out_of_range", "base": "tiled_as_trained", "patch": {"tiling": {"grid": {"min_overlap": 5}}}, "error": "tiling.grid.min_overlap"},
+    {"name": "max_det_zero", "base": "tiled_as_trained", "patch": {"tiling": {"merge": {"max_det": 0}}}, "error": "tiling.merge.max_det"},
+    {"name": "missing_pad", "base": "tiled_as_trained", "patch": {"tiling": {"pad": null}}, "error": "tiling.pad"},
+    {"name": "grid_algorithm_unknown", "base": "tiled_as_trained", "patch": {"tiling": {"grid": {"algorithm": "sahi"}}}, "error": "tiling.grid"},
+    {"name": "merge_mode_unknown", "base": "tiled_as_trained", "patch": {"tiling": {"merge": {"mode": "wbf"}}}, "error": "tiling.merge.mode"},
+    {"name": "missing_tile", "base": "tiled_as_trained", "patch": {"tiling": {"tile": null}}, "error": "tiling.tile"},
+    {"name": "missing_calibration_input_shape", "base": "tiled_as_trained", "patch": {"tiling": {"export": {"calibration": {"input_shape": null}}}}, "error": "input_shape"},
+    {"name": "export_session_garbage", "base": "tiled_as_trained", "patch": {"tiling": {"export": {"session": "garbage"}}}, "error": "session"},
+    {"name": "stretch_fit", "base": "tiled_as_trained", "patch": {"tiling": {"fit": "stretch"}}, "error": "tiling.fit"},
+    {"name": "full_frame_on_whole_frame", "base": "whole_frame_reexport", "patch": {"tiling": {"full_frame": {"enabled": true}, "export": {"calibration": {"full_frame": true}}}}, "error": "full_frame.enabled requires mode tiled"},
+    {"name": "full_frame_pass_not_calibrated", "base": "tiled_as_trained", "patch": {"tiling": {"full_frame": {"enabled": true}}}, "error": "calibration.full_frame"},
+    {"name": "calibrated_full_frame_without_pass", "base": "tiled_as_trained", "patch": {"tiling": {"export": {"calibration": {"full_frame": true}}}}, "error": "calibration.full_frame"},
+    {"name": "missing_calibration_full_frame", "base": "tiled_as_trained", "patch": {"tiling": {"export": {"calibration": {"full_frame": null}}}}, "error": "calibration.full_frame"}
+  ],
+  "snapshot_geometry": [
+    {"name": "tiled_match", "params": {"input_shape": [640, 640], "resize": "tiled", "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": "tiled", "error": null},
+    {"name": "whole_frame_match", "params": {"input_shape": [2176, 3840], "resize": "letterbox"}, "sample_hw": [2176, 3840], "model_input_hw": [2176, 3840], "tiling_mode": "whole_frame", "error": null},
+    {"name": "legacy_letterbox_not_tiled", "params": {"input_shape": [640, 640], "resize": "letterbox"}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": null, "error": null},
+    {"name": "snapshot_not_model_input", "params": {"input_shape": [640, 640], "resize": "letterbox"}, "sample_hw": [640, 640], "model_input_hw": [2176, 3840], "tiling_mode": "whole_frame", "error": "does not match the model input"},
+    {"name": "sample_not_snapshot_shape", "params": {"input_shape": [640, 640], "resize": "letterbox"}, "sample_hw": [480, 640], "model_input_hw": [640, 640], "tiling_mode": null, "error": "sample"},
+    {"name": "letterbox_on_tiled_model", "params": {"input_shape": [640, 640], "resize": "letterbox"}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": "tiled", "error": "resize"},
+    {"name": "tiled_on_whole_frame_model", "params": {"input_shape": [640, 640], "resize": "tiled", "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": "whole_frame", "error": "resize"},
+    {"name": "tiled_without_grid", "params": {"input_shape": [640, 640], "resize": "tiled"}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": "tiled", "error": "grid"},
+    {"name": "missing_input_shape", "params": {"resize": "letterbox"}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": null, "error": "input_shape"},
+    {"name": "missing_resize", "params": {"input_shape": [640, 640]}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": null, "error": "resize"},
+    {"name": "tiled_full_frame_match", "params": {"input_shape": [640, 640], "resize": "tiled", "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "full_frame": true}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": "tiled", "full_frame": true, "error": null},
+    {"name": "tiles_only_on_full_frame_model", "params": {"input_shape": [640, 640], "resize": "tiled", "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": "tiled", "full_frame": true, "error": "must include whole-frame"},
+    {"name": "whole_frame_samples_on_tiles_only_model", "params": {"input_shape": [640, 640], "resize": "tiled", "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "full_frame": true}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": "tiled", "error": "must not include whole-frame"},
+    {"name": "stretch_not_tiled", "params": {"input_shape": [640, 640], "resize": "stretch"}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": null, "error": null},
+    {"name": "stretch_on_whole_frame_model", "params": {"input_shape": [2176, 3840], "resize": "stretch"}, "sample_hw": [2176, 3840], "model_input_hw": [2176, 3840], "tiling_mode": "whole_frame", "error": "resize"},
+    {"name": "stretch_on_tiled_model", "params": {"input_shape": [640, 640], "resize": "stretch"}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": "tiled", "error": "resize"},
+    {"name": "retired_grid_tile_on_tiled_model", "params": {"input_shape": [640, 640], "resize": "grid_tile", "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": "tiled", "error": "resize"},
+    {"name": "legacy_modelpack_tiled_not_tiled", "params": {"input_shape": [640, 640], "resize": "tiled", "tiling": {"tile_size": [640, 640], "grid": {"min_overlap": 0.2}}}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": null, "error": null},
+    {"name": "tiled_without_legacy_block_not_tiled", "params": {"input_shape": [640, 640], "resize": "tiled", "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": null, "error": "resize"},
+    {"name": "unknown_resize_not_tiled", "params": {"input_shape": [640, 640], "resize": "crop"}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": null, "error": "resize"},
+    {"name": "params_missing", "params": null, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": null, "error": "missing or not a mapping"},
+    {"name": "full_frame_not_boolean", "params": {"input_shape": [640, 640], "resize": "tiled", "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "full_frame": "yes"}, "sample_hw": [640, 640], "model_input_hw": [640, 640], "tiling_mode": "tiled", "full_frame": true, "error": "full_frame"}
+  ],
+  "converter_tiling": [
+    {"name": "tiled_as_trained", "tiling": {"version": 1, "mode": "tiled", "tile": [640, 640], "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "fit": "letterbox", "pad": [114, 114, 114], "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001}, "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300}, "full_frame": {"enabled": false, "own_above_area": 0.02}, "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}}, "export": {"session": "t-1a2b", "calibration": {"resize": "tiled", "input_shape": [640, 640], "full_frame": false}}}, "error": null},
+    {"name": "tiled_with_full_frame_pass", "tiling": {"version": 1, "mode": "tiled", "tile": [640, 640], "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "fit": "letterbox", "pad": [114, 114, 114], "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001}, "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300}, "full_frame": {"enabled": true, "own_above_area": 0.02}, "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}}, "export": {"session": "t-1a2b", "calibration": {"resize": "tiled", "input_shape": [640, 640], "full_frame": true}}}, "error": null},
+    {"name": "whole_frame_reexport", "tiling": {"version": 1, "mode": "whole_frame", "tile": [640, 640], "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "fit": "letterbox", "pad": [114, 114, 114], "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001}, "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300}, "full_frame": {"enabled": false, "own_above_area": 0.02}, "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}}, "export": {"session": "t-3c4d", "weights_from": "t-1a2b", "calibration": {"resize": "letterbox", "input_shape": [2176, 3840], "full_frame": false}}}, "error": null},
+    {"name": "version_two", "tiling": {"version": 2, "mode": "tiled", "tile": [640, 640], "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "fit": "letterbox", "pad": [114, 114, 114], "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001}, "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300}, "full_frame": {"enabled": false, "own_above_area": 0.02}, "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}}, "export": {"session": "t-1a2b", "calibration": {"resize": "tiled", "input_shape": [640, 640], "full_frame": false}}}, "error": "version"},
+    {"name": "version_string", "tiling": {"version": "1", "mode": "tiled", "tile": [640, 640], "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "fit": "letterbox", "pad": [114, 114, 114], "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001}, "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300}, "full_frame": {"enabled": false, "own_above_area": 0.02}, "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}}, "export": {"session": "t-1a2b", "calibration": {"resize": "tiled", "input_shape": [640, 640], "full_frame": false}}}, "error": "version"},
+    {"name": "version_bool", "tiling": {"version": true, "mode": "tiled", "tile": [640, 640], "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "fit": "letterbox", "pad": [114, 114, 114], "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001}, "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300}, "full_frame": {"enabled": false, "own_above_area": 0.02}, "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}}, "export": {"session": "t-1a2b", "calibration": {"resize": "tiled", "input_shape": [640, 640], "full_frame": false}}}, "error": "version"},
+    {"name": "version_float", "tiling": {"version": 1.0, "mode": "tiled", "tile": [640, 640], "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "fit": "letterbox", "pad": [114, 114, 114], "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001}, "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300}, "full_frame": {"enabled": false, "own_above_area": 0.02}, "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}}, "export": {"session": "t-1a2b", "calibration": {"resize": "tiled", "input_shape": [640, 640], "full_frame": false}}}, "error": "version"},
+    {"name": "version_missing", "tiling": {"mode": "tiled", "tile": [640, 640], "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "fit": "letterbox", "pad": [114, 114, 114], "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001}, "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300}, "full_frame": {"enabled": false, "own_above_area": 0.02}, "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}}, "export": {"session": "t-1a2b", "calibration": {"resize": "tiled", "input_shape": [640, 640], "full_frame": false}}}, "error": "version"},
+    {"name": "mode_auto", "tiling": {"version": 1, "mode": "auto", "tile": [640, 640], "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "fit": "letterbox", "pad": [114, 114, 114], "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001}, "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300}, "full_frame": {"enabled": false, "own_above_area": 0.02}, "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}}, "export": {"session": "t-1a2b", "calibration": {"resize": "tiled", "input_shape": [640, 640], "full_frame": false}}}, "error": "mode"},
+    {"name": "mode_missing", "tiling": {"version": 1, "tile": [640, 640], "grid": {"algorithm": "evendist", "version": 1, "min_overlap": 0.1}, "fit": "letterbox", "pad": [114, 114, 114], "per_tile": {"nms": "class_aware", "iou": 0.5, "score": 0.001}, "merge": {"mode": "keep_best", "metric": "ios", "threshold": 0.5, "class_agnostic": false, "max_det": 300}, "full_frame": {"enabled": false, "own_above_area": 0.02}, "training": {"session": "t-1a2b", "sampler": "edgefirst-tiling", "version": "3.0", "params": {"tile_size": [640, 640], "windows_per_frame": 4, "seed": 0}}, "export": {"session": "t-1a2b", "calibration": {"resize": "tiled", "input_shape": [640, 640], "full_frame": false}}}, "error": "mode"},
+    {"name": "tiling_list", "tiling": [1], "error": "mapping"},
+    {"name": "tiling_null", "tiling": null, "error": "mapping"}
+  ],
+  "session_ids": {
+    "valid": [["t-2a3f", 10815], ["T-2A3F", 10815], ["10815", 10815], [10815, 10815], ["t-1", 1]],
+    "invalid": ["t-", "t-xyz", "abc", "-5", "0", 0, "", "t-0", "t-0x2a3f", "t-2a_3f", "t- 2a3f", "t-2a3f\n", "t-+5", "+5", " 10815", "١٢"]
+  }
+}
