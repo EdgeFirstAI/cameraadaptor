@@ -164,6 +164,8 @@ def select_max_dynamic_range(
 
     ``count`` is clamped to the number of valid frames.
     """
+    if count < 0:
+        raise ValueError(f"count must be >= 0, got {count}")
     hists, valid = pool["hists"], pool["valid"]
     if count >= int(valid.sum()):
         return [int(i) for i in np.flatnonzero(valid)]
@@ -238,7 +240,8 @@ def plan_tile_samples(
 ) -> list[TileSample]:
     """Samples of a tiled snapshot, in pool order (§6.5).
 
-    ``frame_hw[index]`` is pool frame ``index``'s decoded ``(H, W)``. A frame
+    ``frame_hw[index]`` is pool frame ``index``'s decoded ``(H, W)``;
+    ``selected`` is taken in ascending pool order whatever its order. A frame
     seeded for pool extrema contributes the lowest-index grid tile holding each
     extremum pixel, once per tile; any other frame contributes one tile drawn
     by a generator seeded from ``(seed, index)``. When those number fewer than
@@ -249,7 +252,7 @@ def plan_tile_samples(
     """
     tile = (int(tile_hw[0]), int(tile_hw[1]))
     frames = []
-    for index in selected:
+    for index in sorted({int(i) for i in selected}):
         h, w = frame_hw[index]
         grid = tile_grid((int(h), int(w)), tile, min_overlap)
         rng = np.random.default_rng([seed, index])

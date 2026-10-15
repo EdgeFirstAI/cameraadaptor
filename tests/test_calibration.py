@@ -86,6 +86,21 @@ def test_empty_or_undecodable_pools_raise():
         pool_descriptors([None, None])
 
 
+def test_negative_counts_are_rejected_and_zero_selects_nothing():
+    pool = _pool(_synthetic())
+    with pytest.raises(ValueError, match="count"):
+        select_max_dynamic_range(pool, count=-1)
+    assert select_max_dynamic_range(pool, count=0) == []
+
+
+def test_plan_follows_pool_order_whatever_the_selected_order():
+    sizes = [(1080, 1920), (1080, 1920)]
+    forward = plan_tile_samples(sizes, [0, 1], T, 0.1, count=3)
+    assert plan_tile_samples(sizes, [1, 0], T, 0.1, count=3) == forward
+    assert plan_tile_samples(sizes, [1, 0, 1], T, 0.1, count=3) == forward
+    assert [s.index for s in forward] == [0, 0, 1]
+
+
 def test_descriptor_rejects_non_uint8_frames():
     with pytest.raises(ValueError, match="uint8"):
         image_descriptor(np.zeros((4, 4, 3), np.float32))
