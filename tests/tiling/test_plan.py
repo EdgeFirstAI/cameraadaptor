@@ -184,3 +184,17 @@ def test_kinds_of_a_frame_without_tiles_is_empty():
     plan = plan_epoch([1, 0, 2], 8, TilingConfig(frames_per_batch=3), 0)
     assert sum(len(plan.kinds(f)) for f in range(3)) == len(plan.tiles)
     assert plan.kinds(99) == ()
+
+
+def test_visits_cover_every_tile_in_batch_order():
+    plan = plan_epoch(
+        [3, 0, 1, 2, 0, 5], 8, TilingConfig(frames_per_batch=2), 1
+    )
+    visits = plan.visits()
+    assert sorted(v.frame for v in visits) == list(range(6))
+    flat = [(v.frame, k) for v in visits for k in v.kinds]
+    assert flat == [(t.frame, t.kind) for t in plan.tiles]
+    sizes = Counter()
+    for v in visits:
+        sizes[v.batch] += len(v.kinds)
+    assert [sizes[b] for b in range(len(plan.batches))] == list(plan.batches)

@@ -212,7 +212,7 @@ class TilingConfig:
             "targets.max_boxes must be >= 1",
         )
         check(
-            self.class_balance in ("none", "rfs"),
-            "class_balance must be none or rfs",
+            self.class_balance == "none",
+            "class_balance rfs is not implemented by the epoch plan; use none",
         )
         check(self.rfs_t > 0.0, "rfs_t must be > 0")

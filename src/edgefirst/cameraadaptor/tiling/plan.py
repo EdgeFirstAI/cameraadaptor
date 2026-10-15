@@ -35,6 +35,17 @@ class PlannedTile:
 
 
 @dataclass(frozen=True)
+class PlannedVisit:
+    """One frame visit: the frame, its tile kinds in slot order, and the
+    batch they fill.
+    """
+
+    frame: int
+    kinds: tuple[str, ...]
+    batch: int
+
+
+@dataclass(frozen=True)
 class EpochPlan:
     """Every tile of one epoch in batch order, and each batch's size."""
 
@@ -53,6 +64,23 @@ class EpochPlan:
     def kinds(self, frame: int) -> tuple[str, ...]:
         """Kinds of ``frame``'s tiles in slot order; empty if it has none."""
         return self._kinds_by_frame.get(int(frame), ())
+
+    def visits(self) -> tuple[PlannedVisit, ...]:
+        """Frame visits in batch order: what a loader decodes, one frame at
+        a time, to produce ``tiles`` in order.
+        """
+        return self._visits
+
+    @cached_property
+    def _visits(self) -> tuple[PlannedVisit, ...]:
+        visits, start = [], 0
+        for batch, size in enumerate(self.batches):
+            seen: dict[int, None] = {}
+            for t in self.tiles[start : start + size]:
+                seen.setdefault(t.frame)
+            visits += [PlannedVisit(f, self.kinds(f), batch) for f in seen]
+            start += size
+        return tuple(visits)
 
     def summary(self) -> dict[str, float]:
         """Planned allocation statistics (§3.10)."""

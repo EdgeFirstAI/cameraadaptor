@@ -1,6 +1,6 @@
 # Input Tiling
 
-**Version:** 3.3 (draft) · **Date:** 2026-10-15 · **Author:** Sébastien Taylor · **Status:** The NumPy core and the PyTorch adaptor are implemented in `edgefirst.cameraadaptor.tiling`; the TensorFlow adaptor is in progress.
+**Version:** 3.3 (draft) · **Date:** 2026-10-15 · **Author:** Sébastien Taylor · **Status:** The NumPy core, the PyTorch adaptor and the TensorFlow adaptor are implemented in `edgefirst.cameraadaptor`.
 
 Input tiling is EdgeFirst's form of SAHI (Slicing Aided Hyper Inference and Fine-tuning) for small objects in high-resolution frames. A detector trains at a small input (the *tile*, 640×640 by default) on **native-resolution windows** of the frame, and deploys either on the whole frame (when the accelerator can take it) or on an overlapping tile grid whose detections are lifted and merged.
 
@@ -35,7 +35,8 @@ This document specifies the shared implementation in CameraAdaptor: the training
 | `edgefirst.cameraadaptor.tiling` | NumPy only | Configuration, window sampler, epoch plan, target rules, EvenDist grid, lift and merge reference, `tiling` metadata block and its conformance checks, sampler statistics |
 | `edgefirst.cameraadaptor.tiling.pixels` | `transform` extra (OpenCV) | Crop, antialiased resize and letterbox of one window |
 | `edgefirst.cameraadaptor.pytorch.tiling` | `torch` extra | Grid rendering, per-tile targets and frame merge on tensors, for tiled validation |
-| `edgefirst.cameraadaptor.tensorflow.tiling` | `tensorflow` extra | In progress: `tf.data` wrappers of the sampler and the tiled validation ops |
+| `edgefirst.cameraadaptor.tensorflow.tiling` | `tensorflow` extra | `tf.data` visits around the NumPy sampler, tile rendering and EXIF-aware decoding in the graph, graph target rules for a GPU mosaic, and the §5 multi-label NMS |
+| `edgefirst.cameraadaptor.calibration` | NumPy only | INT8 calibration frame selection and tiled snapshot planning (§6.5) |
 
 Importing `edgefirst.cameraadaptor.tiling` loads neither OpenCV, PyTorch nor TensorFlow, so the sampler runs in data-loader workers, inside `tf.numpy_function` or ahead of a GPU pipeline. What stays in each trainer is listed in §7.5.
 
@@ -93,6 +94,8 @@ Window:
 ```
 
 With `kinds`, one window is drawn per entry, in order. Without it, `k` kinds are drawn from `cfg.mix` for this frame alone.
+
+**Inputs.** `boxes_xyxy` are frame pixels of the frame as decoded (§4.3), inside the frame. The core does not clip or drop input boxes: it takes them as the Ultralytics label checks leave them, so a trainer reading its own label format applies the same checks before sampling.
 
 The pixel stage is the caller's: crop `rect`, resize to `out_hw` with the §3.6 filter rule, and place it at `content` on a pad-filled tile when `content` is set. `tiling.pixels.render_window` does this with OpenCV. `crop_targets(rect, tile_hw, targets, rules, content)` applies §3.8 on its own, for callers that build their own windows, such as a tiled validator or anchor statistics.
 
@@ -219,7 +222,7 @@ A box counts as **clipped** when step 1 changed it. The clipped-box share is a r
 | `targets.truncation` | `drop` | `drop`, `keep` or `ignore` |
 | `targets.ignore_visibility` | 0.05 | Lower edge of the ignore band |
 | `targets.max_boxes` | none | Cap for fixed-shape targets |
-| `class_balance` | `none` | `none` or `rfs`: repeat-factor sampling over frames with threshold `rfs_t` (default 0.001), computed by `repeat_factors` |
+| `class_balance` | `none` | Only `none`. Frame-level repeat-factor sampling (`rfs`) is reserved and rejected until the epoch plan implements it; `rfs_t` (default 0.001) is its threshold. Class-balanced anchors use `anchor_weighting` with factors from `repeat_factors` |
 | `seed` | 0 | Set from the trainer seed (§3.11) |
 
 `SPEC_VERSION` (`"3.3"`) is the sampler specification version recorded in the metadata `training` record (§6.1). It changes only when sampled windows change.
@@ -291,6 +294,7 @@ A 4K JPEG decode costs tens of milliseconds on a CPU core and dominates the pipe
 - Decode each frame once per visit: its N/F planned tiles for the batch come from one decode.
 - **Shuffle across frames before batching,** so that tiles from one frame do not cluster. In tf.data, interleave about 16 frames before the shuffle buffer. In PyTorch, serve mosaic partners from a pool of tiles rendered on earlier visits rather than decoding more frames.
 - A batch holds tiles from F distinct frames (F is clamped to the batch size). Mosaic and MixUp partners add tiles from earlier visits, so a sample's batch context spans more frames than F.
+- **Decode with EXIF orientation applied,** as OpenCV `imread` does; labels refer to the oriented frame. A decoder that ignores EXIF (TensorFlow's) applies `tiling.exif.orientation` itself, and `oriented_hw` gives the decoded size without decoding, for planning and calibration.
 - **Never cache resized frames.** A cache of frames resized to `T` defeats native-scale cropping, and a cache of native 4K frames does not fit in memory.
 - **Region decode (optional).** A decoder that decodes only the rows or MCUs covering a visit's windows cuts CPU cost several-fold. Pixels must be bit-identical to a full decode followed by a crop.
 
@@ -324,6 +328,8 @@ A tile-trained model is scored on **full frames**, the deployment metric, never 
 | Pre-NMS candidates | Top 30,000 |
 | `max_det` | 300 (`TILING_MAX_DET`, the exported `merge.max_det`) |
 | Matching | Highest-confidence detection per ground truth (Ultralytics `match_predictions`); COCO-style AP from the profiler agrees within about 0.003 mAP50-95 |
+
+`tiling.nms_multilabel` is the NumPy reference of this NMS (the `PROTOCOL_*` constants hold its settings) and reproduces Ultralytics `non_max_suppression(multi_label=True)`; `tensorflow.tiling.nms_multilabel` is the same in fixed shapes. `tiling.merge_frame_detections` lifts, merges and clips one frame's per-tile detections.
 
 **Rules for comparable numbers:**
 
@@ -556,7 +562,42 @@ Training tiles in PyTorch are rendered on the CPU in data-loader workers with th
 
 ### 7.4 TensorFlow adaptor
 
-In progress. It wraps the NumPy sampler in `tf.numpy_function` for `tf.data` (window geometry and fixed-shape targets per visit), renders tiles with TensorFlow ops so the pipeline stays on the graph, and provides the §5 tiled validation ops. Until it lands, call the NumPy core from `tf.numpy_function` directly.
+`edgefirst.cameraadaptor.tensorflow.tiling` keeps window choice in the NumPy core and pixels in the graph. A `tf.data` pipeline iterates the epoch's visits; each visit calls the sampler through `tf.numpy_function` and gets static shapes back, so the windows are those the PyTorch trainer draws for the same seed.
+
+```python
+import tensorflow as tf
+
+from edgefirst.cameraadaptor.tensorflow import tiling as tft
+from edgefirst.cameraadaptor.tiling import TilingConfig, plan_epoch
+
+cfg = TilingConfig.from_dict({"tile_size": 640, "targets.max_boxes": 100})
+plan = plan_epoch(extents, batch=16, cfg=cfg, epoch=epoch)
+frames, kinds = tft.visit_arrays(plan)
+visit = tft.visit_fn(cfg, frame_hw, lambda i: (boxes[i], classes[i]), 100)
+
+
+def load(frame, codes):
+    geometry, targets, stats = tft.visit_windows(
+        visit, epoch, frame, codes, final, max_boxes=100
+    )
+    image = tft.decode_frame(tf.io.read_file(tf.gather(paths, frame)))
+    tiles = tft.render_windows(image, geometry, cfg.tile_size, cfg.resize)
+    return tiles, targets, stats
+
+
+tiles = tf.data.Dataset.from_tensor_slices((frames, kinds)).map(load)
+```
+
+| Op | Shapes | Notes |
+|---|---|---|
+| `visit_arrays(plan)` | `frames int64[V]`, kind codes `int32[V, None]` | One element per frame visit, in batch order (`EpochPlan.visits()`) |
+| `visit_fn` + `visit_windows` | `int32[n, 8]` geometry, `float32[n, max_boxes, 5]` targets, `float64[SamplerStats.SIZE]` | Geometry is `pack_geometry`'s `(x, y, w, h, left, top, cw, ch)`; targets are `pack_targets`' normalised `(cx, cy, w, h, class)`, padded with −1. Each visit returns its statistics vector for the caller to sum, so no state is shared across workers |
+| `decode_frame(data)` | `uint8[H, W, 3]` RGB | EXIF orientation applied as OpenCV does (§4.3) |
+| `render_windows(image, geometry, tile_hw, resize)` | `uint8[n, T_h, T_w, 3]` | Same-size crops copied unchanged; downscales use area filtering for `antialias`, everything else bilinear (§3.6); within rounding of `tiling.pixels.render_window`. Grid tiles render the same way from `pack_placements` |
+| `crop_targets(boxes, classes, valid, rect, tile_hw, rules, content)` | Batched padded boxes in, compacted boxes and mask out | §3.8 for a GPU mosaic, matching the core; `truncation="ignore"` is not supported |
+| `nms_multilabel(boxes, scores, iou)` | `[B, max_det]` padded detections and a count | The §5 protocol NMS |
+
+The epoch must travel with the dataset element (§3.11): build each epoch's dataset from its own plan, or carry the epoch in the element. Tiled validation renders `pack_placements(tile_grid(...))`, runs the model and `nms_multilabel` at the per-tile IoU, and merges each frame with `tiling.merge_frame_detections`.
 
 ### 7.5 What stays in each trainer
 
@@ -624,17 +665,21 @@ The tiling tests that need OpenCV or PyTorch skip when the extra is missing, so 
 | `tiling.config` | `TilingConfig`, `Mix`, `ScaleConfig`, `TargetRules`, `KINDS`, `SPEC_VERSION` (§3.9) |
 | `tiling.sampler` | `sample_windows`, `Window`, `make_rng`, `repeat_factors` (§3.1–§3.7, §3.11) |
 | `tiling.targets` | `crop_targets`, `CropResult`, `window_transform` (§3.8) |
-| `tiling.plan` | `plan_epoch`, `EpochPlan`, `PlannedTile`, `batch_layout`, `gt_extent` (§4.2) |
+| `tiling.plan` | `plan_epoch`, `EpochPlan`, `PlannedTile`, `PlannedVisit`, `batch_layout`, `gt_extent` (§4.2) |
+| `tiling.packing` | `pack_geometry`, `pack_placements`, `pack_targets`, `GEOMETRY_FIELDS` (§7.4) |
+| `tiling.nms` | `nms_multilabel`, `PROTOCOL_IOU_WHOLE_FRAME`, `PROTOCOL_IOU_PER_TILE`, `PROTOCOL_SCORE_FLOOR`, `PROTOCOL_MAX_CANDIDATES` (§5) |
+| `tiling.exif` | `orientation` (exported as `exif_orientation`), `oriented_hw` (§4.3) |
 | `tiling.stats` | `SamplerStats` (§3.10) |
 | `tiling.grid` | `axis_origins`, `tile_grid`, `TilePlacement`, `letterbox_rect`, `fit_content`, `frames_per_batch` (§3.7, §5, §6.3) |
-| `tiling.merge` | `lift_tile_boxes`, `merge_tiled_detections` (§6.4) |
+| `tiling.merge` | `lift_tile_boxes`, `merge_tiled_detections`, `merge_frame_detections` (§5, §6.4) |
 | `tiling.metadata` | `build_tiling_block`, `reexport_tiling_block`, `training_record`, `export_record`, `SAMPLER`, `TILING_MAX_DET` (§6.1) |
 | `tiling.contract` | `validate_tiling_block`, `check_snapshot_params`, `check_snapshot_geometry`, `check_converter_tiling`, `model_input_hw`, `parse_session_id`, `ContractError`, `UnsupportedVersion` (§6.1, §6.5) |
 | `tiling.pixels` | `render_window` (§3.6, §3.7; `transform` extra) |
 | `pytorch.tiling` | `plan_frame`, `FramePlan`, `render_tiles`, `tile_targets`, `merge_frame` (§7.3; `torch` extra) |
+| `tensorflow.tiling` | `visit_arrays`, `visit_fn`, `visit_windows`, `decode_frame`, `render_windows`, `crop_targets`, `nms_multilabel`, `KIND_CODES` (§7.4; `tensorflow` extra) |
 | `calibration` | `image_descriptor`, `pool_descriptors`, `select_max_dynamic_range`, `extremum_positions`, `plan_tile_samples`, `TileSample`, `SELECTION_ALGORITHM`, `TILED_SELECTION_ALGORITHM` (§6.5) |
 
-Every name in the first nine rows is also exported from `edgefirst.cameraadaptor.tiling`.
+Every name in the `tiling.*` rows except `tiling.pixels` is also exported from `edgefirst.cameraadaptor.tiling`.
 
 ---
 

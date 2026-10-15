@@ -13,10 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `edgefirst.cameraadaptor.pytorch.tiling`: tile rendering, per-tile targets and frame merge on tensors for tiled validation (`torch` extra).
 - `edgefirst.cameraadaptor.calibration`: model-free INT8 calibration selection (`max_dynamic_range_v1`) and tiled snapshot planning (`max_dynamic_range_tiled_v1`), in NumPy, shared by the PyTorch and TensorFlow trainers.
 - TILING.md: the input tiling specification and usage guide; README gains an Input Tiling section.
+- `edgefirst.cameraadaptor.tensorflow.tiling`: tiled training and validation for TensorFlow (`tensorflow` extra). `tf.data` visits call the NumPy sampler and return fixed shapes, so windows match the PyTorch trainer's; tiles are decoded (with EXIF orientation) and rendered in the graph; the §3.8 target rules run on padded boxes for a GPU mosaic; and the §5 multi-label NMS runs in fixed shapes.
+- Tiling core additions for graph pipelines and the shared validation protocol: `EpochPlan.visits()`, fixed-shape `pack_geometry`/`pack_targets`/`pack_placements`, `nms_multilabel` (the §5 protocol NMS, matching Ultralytics `non_max_suppression(multi_label=True)`), `merge_frame_detections`, and EXIF orientation helpers.
 
 ### Changed
 
 - NumPy 1.25 or newer is required (was 1.21); the tiling sampler uses `Generator.spawn`.
+- `TilingConfig` rejects `class_balance: rfs`, which the epoch plan does not implement; it previously accepted and ignored it.
 
 ### Fixed
 
