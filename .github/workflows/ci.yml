@@ -61,7 +61,7 @@ jobs:
   quick:
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    uses: EdgeFirstAI/.github/.github/workflows/python-quick.yml@f582f06f060e0451b64e94ad6c8830b75984ab8a  # main after #68
+    uses: EdgeFirstAI/.github/.github/workflows/python-quick.yml@9e296f92996b38683c684b9091ed59cb27562770  # v2.3.0
     with:
       python-version: "3.12"
       extra-sync-args: --extra all --extra dev
@@ -69,7 +69,7 @@ jobs:
   full:
     needs: changes
     if: needs.changes.outputs.full == 'true'
-    uses: EdgeFirstAI/.github/.github/workflows/python-full.yml@f582f06f060e0451b64e94ad6c8830b75984ab8a  # main after #68
+    uses: EdgeFirstAI/.github/.github/workflows/python-full.yml@9e296f92996b38683c684b9091ed59cb27562770  # v2.3.0
     with:
       python-versions: '["3.10", "3.11", "3.12", "3.13"]'
       extra-sync-args: --extra all --extra dev

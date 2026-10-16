@@ -23,7 +23,7 @@ jobs:
   # Branch name against the pyproject.toml version, the CHANGELOG section
   # publish.yml needs, and the full SBOM. No crate is packaged.
   verify:
-    uses: EdgeFirstAI/.github/.github/workflows/release-rust.yml@f582f06f060e0451b64e94ad6c8830b75984ab8a  # main after #68
+    uses: EdgeFirstAI/.github/.github/workflows/release-rust.yml@9e296f92996b38683c684b9091ed59cb27562770  # v2.3.0
     with:
       sbom: true
       package-crates: false
