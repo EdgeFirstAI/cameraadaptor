@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-15
+
 ### Added
 
 - `edgefirst.cameraadaptor.tiling`: the input tiling core shared by the PyTorch and TensorFlow trainers (TILING.md §3–§6), in NumPy. It provides the window sampler, epoch plan, target rules, EvenDist grid, lift and keep-best merge (bit-exact with HAL), the `tiling` metadata block, its conformance checks and sampler statistics. `frames_per_batch` sizes validation batches to a tile budget. `tiling.pixels` (window rendering) needs the `transform` extra.
@@ -55,7 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite
 - Documentation with quickstart guide and format references
 
-[Unreleased]: https://github.com/EdgeFirstAI/cameraadaptor/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/EdgeFirstAI/cameraadaptor/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/EdgeFirstAI/cameraadaptor/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/EdgeFirstAI/cameraadaptor/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/EdgeFirstAI/cameraadaptor/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/EdgeFirstAI/cameraadaptor/releases/tag/v0.1.0
