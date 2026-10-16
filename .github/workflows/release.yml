@@ -1,0 +1,78 @@
+# Release build, step 1 of 3 of the EdgeFirstAI release chain:
+#
+#   release.yml      push to release/X.Y.Z  -> build every artifact  (this file)
+#   tag-release.yml  release PR merged      -> annotated vX.Y.Z tag
+#   publish.yml      push of a vX.Y.Z tag   -> publish what was built
+#
+# It runs on the release branch push, not on the pull request, so the
+# artifacts are built from the commit the release PR merges and publish.yml
+# can bind them to the tag.
+
+name: Release Build
+
+on:
+  push:
+    branches: ['release/*.*.*']   # release/X.Y.Z and release/X.Y.Z-rcN
+  workflow_dispatch:
+
+concurrency:
+  group: release-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Branch name against the pyproject.toml version, the CHANGELOG section
+  # publish.yml needs, and the full SBOM. No crate is packaged.
+  verify:
+    uses: EdgeFirstAI/.github/.github/workflows/release-rust.yml@f582f06f060e0451b64e94ad6c8830b75984ab8a  # main after #68
+    with:
+      sbom: true
+      package-crates: false
+    secrets: inherit
+
+  build:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check --strict dist/*
+
+      # The wheel installs into a clean environment with its required
+      # dependencies only, and the namespace package resolves to it.
+      - name: Smoke-test the wheel
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          python -m venv "$RUNNER_TEMP/smoke"
+          "$RUNNER_TEMP/smoke/bin/pip" install dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/smoke/bin/python" - <<'PY'
+          import os
+          from edgefirst.cameraadaptor import __version__
+          from edgefirst.cameraadaptor import tiling  # noqa: F401
+          # A release candidate may still carry its base version.
+          want = os.environ["VERSION"]
+          assert __version__ in (want.replace("-", ""), want.split("-")[0]), (
+              __version__,
+              want,
+          )
+          print("edgefirst-cameraadaptor", __version__)
+          PY
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30

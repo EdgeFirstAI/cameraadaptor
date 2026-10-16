@@ -1,0 +1,89 @@
+# Release chain step 3 of 3 (see release.yml). It builds nothing: the shared
+# workflow finds the release.yml run that built this tag's commit, verifies
+# it, stages its artifacts and creates the GitHub Release; the job below
+# uploads the distribution to PyPI.
+#
+# The PyPI Trusted Publisher for edgefirst-cameraadaptor must name this file
+# (publish.yml) and the `pypi` environment. A rehearsal skips the upload, so
+# it does not prove the publisher is configured.
+
+name: Publish
+
+on:
+  push:
+    tags: ['v*.*.*']              # vX.Y.Z and vX.Y.Z-rcN
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to rehearse, e.g. v0.2.0 (publishes nothing)'
+        required: true
+        type: string
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false       # PyPI uploads are irreversible
+
+jobs:
+  publish:
+    uses: EdgeFirstAI/.github/.github/workflows/publish-rust.yml@f582f06f060e0451b64e94ad6c8830b75984ab8a  # main after #68
+    with:
+      tag: ${{ inputs.tag }}
+      build-workflow: release.yml
+      publish-crates: false
+    permissions:
+      contents: write             # create the GitHub Release
+      actions: read               # read the release.yml run and its artifacts
+      id-token: write
+    secrets: inherit
+
+  # PyPI Trusted Publishing matches the workflow of the publishing repository,
+  # so the upload job lives here rather than in the shared workflow.
+  publish-pypi:
+    needs: publish
+    if: ${{ always() && needs.publish.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/project/edgefirst-cameraadaptor
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.publish.outputs.sha }}
+          sparse-checkout: pyproject.toml
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # The built files carry the manifest version of the verified commit:
+      # the tag version, or for a release candidate possibly its base version,
+      # which the shared workflow accepts with publish-registries false.
+      - name: Version of the built files
+        id: version
+        env:
+          TAG_VERSION: ${{ needs.publish.outputs.version }}
+          REGISTRIES: ${{ needs.publish.outputs.publish-registries }}
+        run: |
+          manifest="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          if [[ "$manifest" != "$TAG_VERSION" ]] &&
+             ! [[ "$manifest" == "${TAG_VERSION%-rc*}" && "$TAG_VERSION" == *-rc* && "$REGISTRIES" != true ]]; then
+            echo "::error file=pyproject.toml::version '$manifest' does not match tag version '$TAG_VERSION'"
+            exit 1
+          fi
+          echo "value=$manifest" >> "$GITHUB_OUTPUT"
+
+      - uses: EdgeFirstAI/.github/.github/actions/stage-pypi@f582f06f060e0451b64e94ad6c8830b75984ab8a  # main after #68
+        with:
+          distribution: edgefirst-cameraadaptor
+          version: ${{ steps.version.outputs.value }}
+
+      # Gated on publish-registries: false for a rehearsal and for a release
+      # candidate that still carries its base version.
+      - name: Upload to PyPI
+        if: ${{ needs.publish.outputs.publish-registries == 'true' }}
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0
+        with:
+          packages-dir: dist
+          skip-existing: true
