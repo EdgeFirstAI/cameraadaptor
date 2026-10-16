@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   publish:
-    uses: EdgeFirstAI/.github/.github/workflows/publish-rust.yml@f582f06f060e0451b64e94ad6c8830b75984ab8a  # main after #68
+    uses: EdgeFirstAI/.github/.github/workflows/publish-rust.yml@9e296f92996b38683c684b9091ed59cb27562770  # v2.3.0
     with:
       tag: ${{ inputs.tag }}
       build-workflow: release.yml
@@ -74,7 +74,7 @@ jobs:
           fi
           echo "value=$manifest" >> "$GITHUB_OUTPUT"
 
-      - uses: EdgeFirstAI/.github/.github/actions/stage-pypi@f582f06f060e0451b64e94ad6c8830b75984ab8a  # main after #68
+      - uses: EdgeFirstAI/.github/.github/actions/stage-pypi@9e296f92996b38683c684b9091ed59cb27562770  # v2.3.0
         with:
           distribution: edgefirst-cameraadaptor
           version: ${{ steps.version.outputs.value }}
