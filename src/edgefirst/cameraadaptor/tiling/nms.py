@@ -31,11 +31,15 @@ def _iou_one(box: np.ndarray, others: np.ndarray) -> np.ndarray:
     return inter / (area + areas - inter)
 
 
-def _greedy(boxes: np.ndarray, iou: float) -> list[int]:
-    """Indices kept from ``boxes`` already in descending score order."""
+def _greedy(boxes: np.ndarray, iou: float, limit: int) -> list[int]:
+    """Indices kept from ``boxes`` already in descending score order, at
+    most ``limit`` of them.
+    """
     alive = np.ones(len(boxes), dtype=bool)
     keep = []
     for i in range(len(boxes)):
+        if len(keep) == limit:
+            break
         if not alive[i]:
             continue
         keep.append(i)
@@ -62,6 +66,8 @@ def nms_multilabel(
     order (box, then class).
     """
     b = np.asarray(boxes_xyxy, dtype=np.float32).reshape(-1, 4)
+    if not len(b):
+        return b, np.zeros(0, np.float32), np.zeros(0, np.int64)
     s = np.asarray(scores, dtype=np.float32).reshape(len(b), -1)
     anchor, cls = np.nonzero(s > np.float32(score_threshold))
     conf = s[anchor, cls]
@@ -73,8 +79,10 @@ def nms_multilabel(
     groups = [np.arange(len(conf))] if class_agnostic else None
     if groups is None:
         groups = [np.flatnonzero(cls == k) for k in np.unique(cls)]
+    # A group keeps at most max_det: no more of it can reach the final top
+    # max_det, and suppression only looks at boxes kept earlier.
     for members in groups:
-        kept += members[_greedy(b[anchor[members]], iou)].tolist()
+        kept += members[_greedy(b[anchor[members]], iou, max_det)].tolist()
     kept = np.asarray(sorted(kept), dtype=np.int64)[:max_det]
     return b[anchor[kept]], conf[kept], cls[kept].astype(np.int64)
 

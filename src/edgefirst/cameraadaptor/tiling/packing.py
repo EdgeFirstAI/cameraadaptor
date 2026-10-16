@@ -53,10 +53,16 @@ def pack_targets(
 
     Raises ValueError when there are more boxes than rows: set
     ``targets.max_boxes`` to the packing size so the cap is the §3.8 rule and
-    is counted, rather than a silent truncation here.
+    is counted, rather than a silent truncation here. Also raises on ignore
+    regions (``truncation="ignore"``), which these rows cannot carry.
     """
     result = targets.targets if isinstance(targets, Window) else targets
     boxes, classes = result.boxes, result.classes
+    if len(result.ignore_boxes):
+        raise ValueError(
+            "ignore regions cannot be packed; use targets.truncation "
+            "'drop' or 'keep'"
+        )
     if len(boxes) > max_boxes:
         raise ValueError(
             f"{len(boxes)} boxes do not fit {max_boxes} rows; set "

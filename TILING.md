@@ -591,11 +591,11 @@ tiles = tf.data.Dataset.from_tensor_slices((frames, kinds)).map(load)
 | Op | Shapes | Notes |
 |---|---|---|
 | `visit_arrays(plan)` | `frames int64[V]`, kind codes `int32[V, None]` | One element per frame visit, in batch order (`EpochPlan.visits()`) |
-| `visit_fn` + `visit_windows` | `int32[n, 8]` geometry, `float32[n, max_boxes, 5]` targets, `float64[SamplerStats.SIZE]` | Geometry is `pack_geometry`'s `(x, y, w, h, left, top, cw, ch)`; targets are `pack_targets`' normalised `(cx, cy, w, h, class)`, padded with −1. Each visit returns its statistics vector for the caller to sum, so no state is shared across workers |
+| `visit_fn` + `visit_windows` | `int32[n, 8]` geometry, `float32[n, max_boxes, 5]` targets, `float64[SamplerStats.SIZE]` | Geometry is `pack_geometry`'s `(x, y, w, h, left, top, cw, ch)`; targets are `pack_targets`' normalised `(cx, cy, w, h, class)`, padded with −1. Each visit returns its statistics vector for the caller to sum, so no state is shared across workers. `targets.truncation` must be `drop` or `keep`, since packed targets carry no ignore regions |
 | `decode_frame(data)` | `uint8[H, W, 3]` RGB | EXIF orientation applied as OpenCV does (§4.3) |
 | `render_windows(image, geometry, tile_hw, resize)` | `uint8[n, T_h, T_w, 3]` | Same-size crops copied unchanged; downscales use area filtering for `antialias`, everything else bilinear (§3.6); within rounding of `tiling.pixels.render_window`. Grid tiles render the same way from `pack_placements` |
 | `crop_targets(boxes, classes, valid, rect, tile_hw, rules, content)` | Batched padded boxes in, compacted boxes and mask out | §3.8 for a GPU mosaic, matching the core; `truncation="ignore"` is not supported |
-| `nms_multilabel(boxes, scores, iou)` | `[B, max_det]` padded detections and a count | The §5 protocol NMS |
+| `nms_multilabel(boxes, scores, iou)` | `[B, max_det]` padded detections and a count | The §5 protocol NMS, suppressing within each class on the boxes as given, so pixel and normalised coordinates both work |
 
 The epoch must travel with the dataset element (§3.11): build each epoch's dataset from its own plan, or carry the epoch in the element. Tiled validation renders `pack_placements(tile_grid(...))`, runs the model and `nms_multilabel` at the per-tile IoU, and merges each frame with `tiling.merge_frame_detections`.
 

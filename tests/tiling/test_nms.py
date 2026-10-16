@@ -46,3 +46,22 @@ def test_no_candidates_returns_empty_arrays():
     assert b.shape == (0, 4)
     assert s.shape == (0,)
     assert c.shape == (0,)
+
+
+def test_zero_anchors_return_empty_arrays():
+    b, s, c = nms_multilabel(np.zeros((0, 4)), np.zeros((0, 3)))
+    assert (b.shape, s.shape, c.shape) == ((0, 4), (0,), (0,))
+    assert (b.dtype, s.dtype, c.dtype) == (np.float32, np.float32, np.int64)
+
+
+def test_capping_each_class_at_max_det_keeps_the_same_detections():
+    rng = np.random.default_rng(1)
+    xy = rng.uniform(0, 400, (600, 2))
+    boxes = np.concatenate([xy, xy + rng.uniform(5, 60, (600, 2))], axis=1)
+    scores = rng.random((600, 3)) ** 3
+    full = nms_multilabel(boxes, scores, max_det=10_000)
+    for max_det in (1, 7, 50):
+        for got, want in zip(
+            nms_multilabel(boxes, scores, max_det=max_det), full, strict=True
+        ):
+            np.testing.assert_array_equal(got, want[:max_det])

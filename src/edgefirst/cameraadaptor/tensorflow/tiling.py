@@ -44,11 +44,6 @@ PAD_VALUE = 114
 KIND_CODES = {kind: code for code, kind in enumerate(KINDS)}
 """Integer code of each window kind, as visits carry them."""
 
-# Class offset of the coordinate trick that makes one NMS pass class-aware,
-# as Ultralytics does.
-_MAX_WH = 7680.0
-
-
 # --- training ---------------------------------------------------------------
 
 
@@ -82,7 +77,15 @@ def visit_fn(
     caller sums instead of sharing state across tf.data workers. The windows
     are those of ``sample_windows`` with ``make_rng(cfg.seed, epoch, frame,
     0)``, as the PyTorch trainer draws them.
+
+    ``cfg.targets.truncation`` must be ``drop`` or ``keep``: packed targets
+    carry no ignore regions.
     """
+    if cfg.targets.truncation == "ignore":
+        raise ValueError(
+            "visit_fn does not support targets.truncation 'ignore'; use "
+            "'drop' or 'keep'"
+        )
     sizes = np.asarray(frame_hw, dtype=np.int64).reshape(-1, 2)
     repeat = None if class_repeat is None else np.asarray(class_repeat)
 
@@ -343,15 +346,36 @@ def nms_multilabel(
         top, index = top[alive], index[alive]
         anchor, cls = index // c, index % c
         cand = tf.gather(b, anchor)
-        offset = (
-            0.0
-            if class_agnostic
-            else tf.cast(cls, tf.float32)[:, None] * _MAX_WH
+        # Suppress within each class on the boxes as given: a class offset
+        # added to the coordinates loses float32 precision and changes IoUs.
+        # Candidates are grouped by class in score order; each group keeps at
+        # most max_det, then the kept candidates return to score order.
+        group = tf.zeros_like(cls) if class_agnostic else cls
+        order = tf.argsort(group, stable=True)
+        _, _, counts = tf.unique_with_counts(tf.gather(group, order))
+        starts = tf.cumsum(counts, exclusive=True)
+        yxyx = tf.gather(tf.gather(cand, order), [1, 0, 3, 2], axis=1)
+        ranked = tf.gather(top, order)
+
+        def per_group(i, kept):
+            lo, size = starts[i], counts[i]
+            sel = tf.image.non_max_suppression(
+                yxyx[lo : lo + size], ranked[lo : lo + size], max_det, iou
+            )
+            return i + 1, kept.write(i, tf.gather(order, sel + lo))
+
+        # One extra empty element, as a TensorArray of none cannot concat.
+        groups = tf.size(counts)
+        kept = tf.TensorArray(
+            tf.int32,
+            size=groups + 1,
+            infer_shape=False,
+            element_shape=tf.TensorShape([None]),
+        ).write(groups, tf.zeros([0], tf.int32))
+        _, kept = tf.while_loop(
+            lambda i, _: i < groups, per_group, (tf.constant(0), kept)
         )
-        shifted = cand + offset
-        keep = tf.image.non_max_suppression(
-            tf.gather(shifted, [1, 0, 3, 2], axis=1), top, max_det, iou
-        )
+        keep = tf.sort(kept.concat())[:max_det]
         n = tf.shape(keep)[0]
         pad = max_det - n
         return (

@@ -47,6 +47,18 @@ def test_too_many_boxes_raise_instead_of_truncating():
         pack_targets(r, T, 2)
 
 
+def test_ignore_regions_raise_instead_of_being_dropped():
+    r = crop_targets(
+        (0, 0, 640, 640),
+        T,
+        {"boxes": [[600, 0, 700, 100]], "classes": [0]},  # visibility 0.4
+        TargetRules(truncation="ignore", min_visibility=0.5),
+    )
+    assert len(r.ignore_boxes) == 1
+    with pytest.raises(ValueError, match="ignore"):
+        pack_targets(r, T, 4)
+
+
 def test_geometry_packs_rect_and_content():
     cfg = TilingConfig(
         mix=Mix(0.0, 0.0, 1.0), scale=ScaleConfig(native_prob=1.0)

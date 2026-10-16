@@ -236,6 +236,12 @@ def test_graph_target_rules_reject_ignore():
         tft.crop_targets(boxes, [0], [True], [0, 0, 10, 10], T, rules)
 
 
+def test_visits_reject_ignore_truncation():
+    cfg = TilingConfig(tile_size=T, targets=TargetRules(truncation="ignore"))
+    with pytest.raises(ValueError, match="ignore"):
+        tft.visit_fn(cfg, [(720, 1280)], lambda i: None, max_boxes=8)
+
+
 # --- validation -------------------------------------------------------------
 
 
@@ -289,3 +295,36 @@ def test_graph_nms_keeps_boxes_at_exactly_the_threshold():
     scores = np.array([[[0.9], [0.8]]], np.float32)
     *_, n = tft.nms_multilabel(boxes, scores, 0.5)
     assert int(n[0]) == len(nms_multilabel(boxes[0], scores[0], 0.5)[0])
+
+
+def test_graph_nms_matches_the_reference_on_small_normalised_boxes():
+    boxes = np.array(
+        [[[0.01, 0.01, 0.06, 0.06], [0.02, 0.02, 0.07, 0.07]]], np.float32
+    )  # IoU about 0.47
+    scores = np.zeros((1, 2, 80), np.float32)
+    scores[0, :, 79] = [0.9, 0.8]
+    *_, n = tft.nms_multilabel(boxes, scores, 0.7)
+    assert int(n[0]) == len(nms_multilabel(boxes[0], scores[0], 0.7)[0]) == 2
+    rng = np.random.default_rng(8)
+    xy = rng.uniform(0, 1, (2, 400, 2))
+    boxes = np.concatenate([xy, xy + rng.uniform(0.002, 0.1, (2, 400, 2))], -1)
+    scores = rng.random((2, 400, 80)) ** 8
+    b, s, c, n = tft.nms_multilabel(boxes, scores, 0.5, max_det=100)
+    for i in range(2):
+        m = int(n[i])
+        got = _canon(
+            b.numpy()[i, :m],
+            s.numpy()[i, :m],
+            c.numpy()[i, :m].astype(np.int64),
+        )
+        want = _canon(*nms_multilabel(boxes[i], scores[i], 0.5, max_det=100))
+        assert m == len(want[0])
+        np.testing.assert_allclose(got[0], want[0], atol=1e-6)
+        np.testing.assert_array_equal(got[2], want[2])
+
+
+def test_graph_nms_handles_no_candidates():
+    *_, n = tft.nms_multilabel(np.zeros((2, 0, 4)), np.zeros((2, 0, 3)), 0.7)
+    assert n.numpy().tolist() == [0, 0]
+    *_, n = tft.nms_multilabel(np.ones((1, 5, 4)), np.zeros((1, 5, 3)), 0.7)
+    assert n.numpy().tolist() == [0]
