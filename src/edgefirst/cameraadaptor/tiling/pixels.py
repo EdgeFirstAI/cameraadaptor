@@ -7,12 +7,14 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
+from ._types import HW, Rect
+
 
 def render_window(
     frame: np.ndarray,
-    rect,
-    tile_hw,
-    content=None,
+    rect: Rect,
+    tile_hw: HW,
+    content: Rect | None = None,
     resize: str = "antialias",
     pad: int = 114,
 ) -> np.ndarray:

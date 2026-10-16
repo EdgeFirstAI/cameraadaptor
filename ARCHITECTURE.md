@@ -161,12 +161,13 @@ sequenceDiagram
 ```
 src/edgefirst/cameraadaptor/
 ├── __init__.py          # Public API exports
-├── _version.py          # Version string
+├── _version.py          # Version, read from package metadata
 ├── _compat.py           # Python compatibility
 ├── color_spaces.py      # ColorSpace enum and utilities
 ├── transform.py         # CameraAdaptorTransform
 ├── config.py            # CameraAdaptorConfig
 ├── hal_utils.py         # FOURCC/colorspace mapping for HAL
+├── calibration.py       # INT8 calibration selection and tiled planning
 ├── py.typed             # PEP 561 type marker
 ├── tiling/              # Input tiling core, NumPy only (TILING.md)
 │   ├── config.py        # TilingConfig, Mix, ScaleConfig, TargetRules
@@ -194,7 +195,7 @@ src/edgefirst/cameraadaptor/
 | Dependency | Purpose | License | Required |
 |------------|---------|---------|----------|
 | numpy | Array operations | BSD-3-Clause | Yes |
-| opencv-python | Color conversions | Apache-2.0 | Optional (transform) |
+| opencv-python-headless | Color conversions, tile rendering | Apache-2.0 | Optional (transform) |
 | torch | PyTorch model layer | BSD-3-Clause | Optional (torch) |
 | tensorflow | TensorFlow model layer | Apache-2.0 | Optional (tensorflow) |
 | pytorch-lightning | Experiment tracking | Apache-2.0 | Optional (lightning) |
@@ -223,3 +224,5 @@ from edgefirst.cameraadaptor import get_fourcc_str, from_fourcc_str
 fourcc = get_fourcc_str(ColorSpace.YUYV)  # "YUYV"
 color_space = from_fourcc_str("YUYV")      # ColorSpace.YUYV
 ```
+
+The tiling grid, lift and merge are a Python reference of HAL's (`edgefirst-image`, `edgefirst-decoder`). `tests/tiling/test_hal_parity.py` compares them with HAL on randomised cases, and `tests/fixtures/tiling_golden.json` records cases generated from HAL with the HAL version that produced them. The `dev` extra pins the HAL minor the parity tests run against.

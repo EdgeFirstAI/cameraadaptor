@@ -17,21 +17,10 @@ When deploying computer vision models to edge devices, there's often a mismatch 
 
 ## How It Works
 
-```mermaid
-graph LR
-  subgraph training ["Training Time"]
-    direction LR
-    A1["RGB Dataset"] --> B1["CameraAdaptorTransform"] --> C1["Target Format<br>(e.g., YUYV, BGR)"] --> D1["Model with<br>CameraAdaptor"]
-  end
-
-  subgraph inference ["Inference Time"]
-    direction LR
-    A2["Camera/<br>Hardware"] --> D2["Model<br>(native format)"]
-  end
-
-  style training fill:#e3f2fd,stroke:#1976d2
-  style inference fill:#e8f5e9,stroke:#4caf50
-```
+| Stage | Pipeline |
+| --- | --- |
+| Training | RGB dataset → `CameraAdaptorTransform` → target format (e.g. YUYV, BGR) → model with `CameraAdaptor` |
+| Inference | Camera or hardware → model (native format), no conversion |
 
 ## Key Components
 
@@ -210,11 +199,11 @@ yuyv = transform(img)
 - **Roadmap**: NV12, NV21 (semi-planar YUV 4:2:0)
 - **Roadmap**: Bayer patterns (RGGB, BGGR, GRBG, GBRG)
 
-See [FORMATS.md](FORMATS.md) for detailed format documentation.
+See [FORMATS.md](https://github.com/EdgeFirstAI/cameraadaptor/blob/main/FORMATS.md) for detailed format documentation.
 
 ## Platform-Specific Guidance
 
-See [PLATFORMS.md](PLATFORMS.md) for i.MX platform-specific recommendations:
+See [PLATFORMS.md](https://github.com/EdgeFirstAI/cameraadaptor/blob/main/PLATFORMS.md) for i.MX platform-specific recommendations:
 
 - **i.MX 93**: PXP outputs BGR - train models with BGR format
 - **i.MX 8M Plus**: G2D outputs RGBA - use RGBA to auto-slice alpha
@@ -267,7 +256,7 @@ for w in sample_windows(frame.shape[:2], boxes, classes, cfg, rng, k=4):
     # augmentation pipeline
 ```
 
-See [TILING.md](TILING.md) for the specification, the epoch plan, tiled validation and the runtime metadata contract.
+See [TILING.md](https://github.com/EdgeFirstAI/cameraadaptor/blob/main/TILING.md) for the specification, the epoch plan, tiled validation and the runtime metadata contract.
 
 ## Migration from Existing Code
 

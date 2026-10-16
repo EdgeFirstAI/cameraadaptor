@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ._types import HW, Rect
 from .config import TargetRules
 
 SUPPORTED_TARGETS = ("boxes", "classes")
@@ -16,6 +17,8 @@ SUPPORTED_TARGETS = ("boxes", "classes")
 
 @dataclass(frozen=True)
 class CropResult:
+    """Targets of one window after the §3.8 rules, with drop counts."""
+
     boxes: np.ndarray
     classes: np.ndarray
     clipped: np.ndarray
@@ -26,7 +29,7 @@ class CropResult:
 
 
 def window_transform(
-    rect, tile_hw, content=None
+    rect: Rect, tile_hw: HW, content: Rect | None = None
 ) -> tuple[float, float, float, float]:
     """``(sx, sy, tx, ty)`` such that ``tile = frame * s + t``."""
     x, y, w, h = rect
@@ -37,7 +40,11 @@ def window_transform(
 
 
 def crop_targets(
-    rect, tile_hw, targets: Mapping, rules: TargetRules, content=None
+    rect: Rect,
+    tile_hw: HW,
+    targets: Mapping,
+    rules: TargetRules,
+    content: Rect | None = None,
 ) -> CropResult:
     """Translate, clip and filter frame-pixel targets into tile pixels."""
     reserved = sorted(set(targets) - set(SUPPORTED_TARGETS))

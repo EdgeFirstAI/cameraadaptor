@@ -17,6 +17,7 @@ from functools import cached_property
 
 import numpy as np
 
+from ._types import HW, ArrayLike
 from .config import TilingConfig
 from .grid import tile_grid
 from .sampler import _hits
@@ -26,6 +27,8 @@ PLAN_STREAM = 0x504C414E
 
 @dataclass(frozen=True)
 class PlannedTile:
+    """One tile of an epoch: its frame, slot within the visit and kind."""
+
     frame: int
     slot: int
     kind: str
@@ -33,6 +36,8 @@ class PlannedTile:
 
 @dataclass(frozen=True)
 class EpochPlan:
+    """Every tile of one epoch in batch order, and each batch's size."""
+
     tiles: tuple[PlannedTile, ...]
     batches: tuple[int, ...]
     background_frames: int
@@ -50,6 +55,7 @@ class EpochPlan:
         return self._kinds_by_frame.get(int(frame), ())
 
     def summary(self) -> dict[str, float]:
+        """Planned allocation statistics (§3.10)."""
         counts = np.bincount(
             [t.frame for t in self.tiles], minlength=self.frames
         )
@@ -70,7 +76,9 @@ class EpochPlan:
         }
 
 
-def gt_extent(frame_hw, boxes_xyxy, tile_hw, min_overlap: float) -> int:
+def gt_extent(
+    frame_hw: HW, boxes_xyxy: ArrayLike, tile_hw: HW, min_overlap: float
+) -> int:
     """EvenDist grid tiles intersecting any ground-truth box; 0 for a frame
     without boxes.
     """

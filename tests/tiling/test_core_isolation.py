@@ -5,6 +5,8 @@ import pathlib
 import subprocess
 import sys
 
+import pytest
+
 import edgefirst.cameraadaptor.tiling as core
 
 CORE = pathlib.Path(core.__file__).parent
@@ -55,9 +57,13 @@ def test_tiling_modules_import_only_their_dependencies():
                 assert name.startswith("edgefirst.cameraadaptor.tiling"), name
 
 
-def test_importing_the_core_loads_neither_opencv_nor_torch():
+@pytest.mark.parametrize(
+    "module",
+    ["edgefirst.cameraadaptor.tiling", "edgefirst.cameraadaptor.calibration"],
+)
+def test_importing_the_core_loads_neither_opencv_nor_torch(module):
     code = (
-        "import sys, edgefirst.cameraadaptor.tiling; "
+        f"import sys, {module}; "
         "print(sorted({'cv2', 'torch', 'tensorflow'} & set(sys.modules)))"
     )
     out = subprocess.run(

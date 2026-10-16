@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from ._types import ArrayLike
 from .grid import TilePlacement
 
 # Classes with at most this many candidates precompute all pairwise overlaps;
@@ -16,7 +17,9 @@ from .grid import TilePlacement
 _DENSE_MAX = 256
 
 
-def lift_tile_boxes(boxes_norm, placement: TilePlacement) -> np.ndarray:
+def lift_tile_boxes(
+    boxes_norm: ArrayLike, placement: TilePlacement
+) -> np.ndarray:
     """Lift model-input-normalised xyxy boxes into frame pixels.
 
     Float32 throughout. A letterboxed placement is un-padded and clamped to its
@@ -93,9 +96,9 @@ def _overlap_row(dense, boxes, area, j: int, metric, thr, eps) -> np.ndarray:
 
 
 def merge_tiled_detections(
-    boxes,
-    scores,
-    classes,
+    boxes: ArrayLike,
+    scores: ArrayLike,
+    classes: ArrayLike,
     *,
     metric: str = "ios",
     threshold: float = 0.5,
@@ -103,7 +106,7 @@ def merge_tiled_detections(
     class_agnostic: bool = False,
     max_det: int = 300,
     score_threshold: float = 0.0,
-):
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Greedy merge of lifted detections in frame pixels.
 
     Descending score order, ties by input order. Each kept box claims every

@@ -149,6 +149,8 @@ class TilingConfig:
         return data
 
     def validate(self) -> None:
+        """Raise ValueError when a parameter is out of range."""
+
         def check(ok: bool, message: str) -> None:
             if not ok:
                 raise ValueError(f"invalid tiling config: {message}")

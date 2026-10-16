@@ -371,7 +371,7 @@ tiling:
   export:                        # how this model was produced
     session: t-3c4d
     weights_from: t-1a2b         # omitted when the same session trained and exported
-    calibration: {resize: tiled, input_shape: [640, 640]}
+    calibration: {resize: tiled, input_shape: [640, 640], full_frame: false}
   # reserved for later tasks (§8): masks, semantic, keypoints, obb
 ```
 
@@ -441,14 +441,14 @@ Both modes use the same weights, because the detectors are fully convolutional a
 
 **Whole-frame export size.** Each side must be a multiple of 32, the backbone stride, and an export fails early rather than rounding silently. A width that is not a multiple of 64 should log a warning, because 3-byte RGB rows are then not 64-byte aligned, which Mali GPU preprocessing requires. Frames of other sizes are letterboxed into the input by the runtime.
 
-**Calibration snapshots.** Frame selection is the same in both modes (model-free, source-pixel statistics over the training split). The modes differ in what each selected frame contributes:
+**Calibration snapshots.** Frame selection is the same in both modes: `max_dynamic_range_v1`, model-free and computed from source-pixel statistics over the training split (`edgefirst.cameraadaptor.calibration`). The modes differ in what each selected frame contributes:
 
 | Mode | Sample per selected frame | Snapshot parameters |
 |---|---|---|
 | Whole-frame | The frame letterboxed to the export size | `resize: letterbox`, `input_shape` = export size |
 | Tiled | Deployment-grid tiles of the frame at native scale: the tiles holding the pool extrema for frames selected for them, otherwise one seeded tile per frame, plus further distinct seeded tiles spread evenly over frames when the pool has fewer frames than the sample count; frames smaller than the tile are letterboxed as in §3.7 | `resize: tiled`, `selection: max_dynamic_range_tiled_v1`, `grid: {algorithm: evendist, version: 1, min_overlap}`, `input_shape` = tile size |
 
-The `grid` block is part of the snapshot parameter hash, so tiled and letterbox snapshots never share a cache entry. `check_snapshot_params`, `check_snapshot_geometry` and `check_converter_tiling` are the reference checks for converters. A 4K whole-frame snapshot of 500 samples holds about 12.5 GB of padded frames, against about 0.6 GB for 500 grid tiles of 640².
+The `grid` block is part of the snapshot parameter hash, so tiled and letterbox snapshots never share a cache entry. `check_snapshot_params`, `check_snapshot_geometry` and `check_converter_tiling` are the reference checks for converters. `calibration.select_max_dynamic_range` selects the frames, `calibration.extremum_positions` gives the extremum pixels of seeded frames, and `calibration.plan_tile_samples` plans a tiled snapshot's tiles from the frames' decoded sizes; decoding, and therefore EXIF orientation, is the trainer's. A 4K whole-frame snapshot of 500 samples holds about 12.5 GB of padded frames, against about 0.6 GB for 500 grid tiles of 640².
 
 ---
 
@@ -632,6 +632,7 @@ The tiling tests that need OpenCV or PyTorch skip when the extra is missing, so 
 | `tiling.contract` | `validate_tiling_block`, `check_snapshot_params`, `check_snapshot_geometry`, `check_converter_tiling`, `model_input_hw`, `parse_session_id`, `ContractError`, `UnsupportedVersion` (§6.1, §6.5) |
 | `tiling.pixels` | `render_window` (§3.6, §3.7; `transform` extra) |
 | `pytorch.tiling` | `plan_frame`, `FramePlan`, `render_tiles`, `tile_targets`, `merge_frame` (§7.3; `torch` extra) |
+| `calibration` | `image_descriptor`, `pool_descriptors`, `select_max_dynamic_range`, `extremum_positions`, `plan_tile_samples`, `TileSample`, `SELECTION_ALGORITHM`, `TILED_SELECTION_ALGORITHM` (§6.5) |
 
 Every name in the first nine rows is also exported from `edgefirst.cameraadaptor.tiling`.
 

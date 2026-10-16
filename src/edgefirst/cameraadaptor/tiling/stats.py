@@ -9,8 +9,14 @@ trainer turns the vector into a per-epoch summary.
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+from ._types import ArrayLike
+
+if TYPE_CHECKING:
+    from .sampler import Window
 
 _SCALARS = (
     "windows",
@@ -39,9 +45,11 @@ _SCALE = _OBJECTS + len(OBJECT_EDGES)
 
 
 class SamplerStats:
+    """Per-window sampler statistics (§3.10) in one flat float64 vector."""
+
     SIZE = _SCALE + len(SCALE_EDGES) - 1
 
-    def __init__(self, vector=None):
+    def __init__(self, vector: ArrayLike | None = None):
         self.v = (
             np.zeros(self.SIZE, np.float64)
             if vector is None
@@ -50,16 +58,19 @@ class SamplerStats:
 
     @staticmethod
     def index(key: str) -> int:
+        """Position of a scalar counter in the vector."""
         return _SCALARS.index(key)
 
     def add(self, key: str, n: float = 1) -> None:
+        """Add ``n`` to a scalar counter."""
         self.v[self.index(key)] += n
 
     def __iadd__(self, other: SamplerStats) -> SamplerStats:
         self.v += other.v
         return self
 
-    def record(self, window) -> None:
+    def record(self, window: Window) -> None:
+        """Count one sampled window."""
         self.add("windows")
         self.add(window.kind)
         if window.fallback:
@@ -100,9 +111,11 @@ class SamplerStats:
             ] += 1
 
     def anchor_histogram(self) -> np.ndarray:
+        """8x8 counts of anchor centres in tile coordinates."""
         return self.v[_ANCHOR:_OBJECTS].reshape(ANCHOR_BINS, ANCHOR_BINS)
 
     def objects_histogram(self) -> np.ndarray:
+        """Counts of boxes per tile over ``OBJECT_EDGES``."""
         return self.v[_OBJECTS:_SCALE].copy()
 
     def scale_histogram(self) -> np.ndarray:
@@ -113,6 +126,7 @@ class SamplerStats:
         return self.v[_SCALE : self.SIZE].copy()
 
     def summary(self) -> dict[str, float]:
+        """Per-epoch shares and rates (§3.10)."""
         g = lambda key: float(self.v[self.index(key)])  # noqa: E731
         ratio = lambda a, b: a / b if b else 0.0  # noqa: E731
         windows, non_full = g("windows"), g("windows") - g("full_frame")

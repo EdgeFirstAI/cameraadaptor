@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -22,12 +23,19 @@ from edgefirst.cameraadaptor.tiling import (
 
 @dataclass(frozen=True)
 class FramePlan:
+    """A frame's deployment grid and its offset in the validator input."""
+
     frame_hw: tuple[int, int]
     pad: tuple[int, int]
     tiles: list[TilePlacement]
 
 
-def plan_frame(frame_hw, pad_xy, tile_hw, min_overlap: float) -> FramePlan:
+def plan_frame(
+    frame_hw: Sequence[int],
+    pad_xy: Sequence[int],
+    tile_hw: int | Sequence[int],
+    min_overlap: float,
+) -> FramePlan:
     """Grid for a native frame placed at ``pad_xy`` (left, top) inside the
     validator input.
 
@@ -80,7 +88,7 @@ def tile_targets(
     classes: np.ndarray,
     plan: FramePlan,
     rules: TargetRules,
-):
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Per-tile targets in Ultralytics batch layout (``batch_idx``, ``cls``
     [n,1], normalised xywh).
 
@@ -123,7 +131,10 @@ def tile_targets(
 
 
 def merge_frame(
-    per_tile: list[dict], plan: FramePlan, max_det: int = 300, device="cpu"
+    per_tile: list[dict],
+    plan: FramePlan,
+    max_det: int = 300,
+    device: str | torch.device = "cpu",
 ) -> dict:
     """Lift per-tile detections, merge across tiles and return validator-input
     pixels.
