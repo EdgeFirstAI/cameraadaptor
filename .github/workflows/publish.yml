@@ -50,10 +50,34 @@ jobs:
       id-token: write
       contents: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.publish.outputs.sha }}
+          sparse-checkout: pyproject.toml
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # The built files carry the manifest version of the verified commit:
+      # the tag version, or for a release candidate possibly its base version,
+      # which the shared workflow accepts with publish-registries false.
+      - name: Version of the built files
+        id: version
+        env:
+          TAG_VERSION: ${{ needs.publish.outputs.version }}
+          REGISTRIES: ${{ needs.publish.outputs.publish-registries }}
+        run: |
+          manifest="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          if [[ "$manifest" != "$TAG_VERSION" ]] &&
+             ! [[ "$manifest" == "${TAG_VERSION%-rc*}" && "$TAG_VERSION" == *-rc* && "$REGISTRIES" != true ]]; then
+            echo "::error file=pyproject.toml::version '$manifest' does not match tag version '$TAG_VERSION'"
+            exit 1
+          fi
+          echo "value=$manifest" >> "$GITHUB_OUTPUT"
+
       - uses: EdgeFirstAI/.github/.github/actions/stage-pypi@f582f06f060e0451b64e94ad6c8830b75984ab8a  # main after #68
         with:
           distribution: edgefirst-cameraadaptor
-          version: ${{ needs.publish.outputs.version }}
+          version: ${{ steps.version.outputs.value }}
 
       # Gated on publish-registries: false for a rehearsal and for a release
       # candidate that still carries its base version.
