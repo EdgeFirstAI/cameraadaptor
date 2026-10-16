@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `tensorflow.tiling.render_windows` copies same-size windows and resizes the others in uint8, with identical output. ModelPack's tiled loader renders about 2.5 times as many tiles per second.
+
 ## [0.2.0] - 2026-10-15
 
 ### Added

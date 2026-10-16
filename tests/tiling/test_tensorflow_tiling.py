@@ -107,6 +107,28 @@ def test_native_windows_render_as_exact_crops():
 
 
 @pytest.mark.parametrize("resize", ["antialias", "bilinear"])
+def test_resizes_equal_the_float32_computation(resize):
+    img = _frame(1080, 1920, seed=3)
+    geom = np.array(
+        [
+            [0, 0, 1920, 1080, 0, 70, 320, 180],  # downscale, letterboxed
+            [100, 50, 427, 427, 0, 0, 320, 320],  # downscale
+            [400, 300, 240, 240, 0, 0, 320, 320],  # upscale
+        ],
+        np.int32,
+    )
+    tiles = tft.render_windows(img, geom, T, resize=resize).numpy()
+    for (x, y, w, h, left, top, cw, ch), tile in zip(geom, tiles, strict=True):
+        crop = tf.cast(img[y : y + h, x : x + w], tf.float32)
+        method = "area" if resize == "antialias" and ch < h else "bilinear"
+        ref = tf.image.resize(crop, (ch, cw), method=method)
+        ref = tf.cast(tf.clip_by_value(tf.round(ref), 0, 255), tf.uint8)
+        np.testing.assert_array_equal(
+            tile[top : top + ch, left : left + cw], ref.numpy()
+        )
+
+
+@pytest.mark.parametrize("resize", ["antialias", "bilinear"])
 def test_resized_windows_match_opencv_within_rounding(resize):
     img = _frame(1080, 1920, seed=1)
     cfg = TilingConfig(

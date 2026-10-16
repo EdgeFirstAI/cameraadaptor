@@ -183,25 +183,26 @@ def decode_frame(data: tf.Tensor) -> tf.Tensor:
 def _fit(
     crop: tf.Tensor, ch: tf.Tensor, cw: tf.Tensor, resize: str
 ) -> tf.Tensor:
+    # Resizes read the uint8 crop directly: TensorFlow's uint8 kernels give
+    # the same result as a float32 input several times faster.
     h, w = tf.shape(crop)[0], tf.shape(crop)[1]
-    pixels = tf.cast(crop, tf.float32)
     down = tf.logical_or(ch < h, cw < w)
     size = tf.stack([ch, cw])
     area = resize == "antialias"
 
     def scaled():
-        return tf.cond(
+        out = tf.cond(
             tf.logical_and(down, area),
-            lambda: tf.image.resize(pixels, size, method="area"),
-            lambda: tf.image.resize(pixels, size, method="bilinear"),
+            lambda: tf.image.resize(crop, size, method="area"),
+            lambda: tf.image.resize(crop, size, method="bilinear"),
         )
+        return tf.cast(tf.clip_by_value(tf.round(out), 0, 255), tf.uint8)
 
-    out = tf.cond(
+    return tf.cond(
         tf.logical_and(tf.equal(ch, h), tf.equal(cw, w)),
-        lambda: pixels,
+        lambda: crop,
         scaled,
     )
-    return tf.cast(tf.clip_by_value(tf.round(out), 0, 255), tf.uint8)
 
 
 def render_windows(
