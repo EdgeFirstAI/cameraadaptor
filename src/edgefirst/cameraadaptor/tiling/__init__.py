@@ -26,6 +26,8 @@ from .contract import (
     parse_session_id,
     validate_tiling_block,
 )
+from .exif import orientation as exif_orientation
+from .exif import oriented_hw
 from .grid import (
     TilePlacement,
     axis_origins,
@@ -34,7 +36,11 @@ from .grid import (
     letterbox_rect,
     tile_grid,
 )
-from .merge import lift_tile_boxes, merge_tiled_detections
+from .merge import (
+    lift_tile_boxes,
+    merge_frame_detections,
+    merge_tiled_detections,
+)
 from .metadata import (
     SAMPLER,
     TILING_MAX_DET,
@@ -43,7 +49,27 @@ from .metadata import (
     reexport_tiling_block,
     training_record,
 )
-from .plan import EpochPlan, PlannedTile, batch_layout, gt_extent, plan_epoch
+from .nms import (
+    PROTOCOL_IOU_PER_TILE,
+    PROTOCOL_IOU_WHOLE_FRAME,
+    PROTOCOL_MAX_CANDIDATES,
+    PROTOCOL_SCORE_FLOOR,
+    nms_multilabel,
+)
+from .packing import (
+    GEOMETRY_FIELDS,
+    pack_geometry,
+    pack_placements,
+    pack_targets,
+)
+from .plan import (
+    EpochPlan,
+    PlannedTile,
+    PlannedVisit,
+    batch_layout,
+    gt_extent,
+    plan_epoch,
+)
 from .sampler import Window, make_rng, repeat_factors, sample_windows
 from .stats import SamplerStats
 from .targets import CropResult, crop_targets, window_transform
@@ -63,6 +89,9 @@ __all__ = [
     "tile_grid",
     "lift_tile_boxes",
     "merge_tiled_detections",
+    "merge_frame_detections",
+    "exif_orientation",
+    "oriented_hw",
     "SAMPLER",
     "TILING_MAX_DET",
     "build_tiling_block",
@@ -79,6 +108,16 @@ __all__ = [
     "SamplerStats",
     "EpochPlan",
     "PlannedTile",
+    "PlannedVisit",
+    "GEOMETRY_FIELDS",
+    "PROTOCOL_IOU_PER_TILE",
+    "PROTOCOL_IOU_WHOLE_FRAME",
+    "PROTOCOL_MAX_CANDIDATES",
+    "PROTOCOL_SCORE_FLOOR",
+    "nms_multilabel",
+    "pack_geometry",
+    "pack_targets",
+    "pack_placements",
     "batch_layout",
     "gt_extent",
     "plan_epoch",

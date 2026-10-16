@@ -17,6 +17,7 @@ STDLIB = {
     "dataclasses",
     "functools",
     "math",
+    "struct",
     "typing",
     "collections",
     "numbers",

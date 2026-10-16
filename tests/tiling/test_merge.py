@@ -128,3 +128,42 @@ def test_merge_below_score_threshold_is_empty():
     assert b.shape == (0, 4)
     assert len(s) == 0
     assert len(c) == 0
+
+
+def test_frame_merge_lifts_merges_and_clips_to_the_frame():
+    from edgefirst.cameraadaptor.tiling import (
+        merge_frame_detections,
+        pack_placements,
+        tile_grid,
+    )
+
+    grid = tile_grid((300, 1000), (320, 320), 0.1)
+    rng = np.random.default_rng(3)
+    per_tile = []
+    for _ in grid:
+        xy = rng.uniform(0, 0.9, (6, 2)).astype(np.float32)
+        boxes = np.concatenate([xy, xy + 0.3], axis=1)  # some past the edge
+        per_tile.append((boxes, rng.random(6), rng.integers(0, 2, 6)))
+    b, s, c = merge_frame_detections(per_tile, grid, (300, 1000))
+    assert len(b)
+    assert (b[:, [0, 2]] <= 1000).all()
+    assert (b[:, [1, 3]] <= 300).all()
+    assert (np.diff(s) <= 0).all()
+    geom = pack_placements(grid)
+    assert geom.shape == (len(grid), 8)
+    assert tuple(geom[0, :4]) == grid[0].rect
+    torch = pytest.importorskip("torch")
+    from edgefirst.cameraadaptor.pytorch.tiling import merge_frame, plan_frame
+
+    plan = plan_frame((300, 1000), (0, 0), 320, 0.1)
+    preds = [
+        {
+            "bboxes": torch.from_numpy(t[0] * 320),
+            "conf": torch.from_numpy(np.asarray(t[1], np.float32)),
+            "cls": torch.from_numpy(np.asarray(t[2])),
+        }
+        for t in per_tile
+    ]
+    out = merge_frame(preds, plan)
+    np.testing.assert_allclose(out["bboxes"].numpy(), b, atol=1e-4)
+    np.testing.assert_array_equal(out["cls"].numpy(), c)

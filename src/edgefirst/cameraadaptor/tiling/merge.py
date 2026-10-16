@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 
 from ._types import ArrayLike
@@ -204,3 +206,45 @@ def _overlaps(b, area, metric, thr, eps, rows=None, block=1024):
         )
         out[r0 - lo : r.stop - lo] = inter / np.maximum(denom, eps) >= thr
     return out
+
+
+def merge_frame_detections(
+    per_tile: Sequence[tuple[ArrayLike, ArrayLike, ArrayLike]],
+    placements: Sequence[TilePlacement],
+    frame_hw: Sequence[int],
+    max_det: int = 300,
+    metric: str = "ios",
+    threshold: float = 0.5,
+    mode: str = "keep_best",
+    class_agnostic: bool = False,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """One frame's detections from its tiles' (§6.4).
+
+    ``per_tile[i]`` holds tile ``placements[i]``'s ``(boxes, scores,
+    classes)`` after per-tile NMS, boxes normalised xyxy over the model
+    input. They are lifted, merged across tiles and clipped to the frame,
+    which yields xyxy frame pixels.
+    """
+    boxes, scores, classes = [], [], []
+    for (b, s, c), p in zip(per_tile, placements, strict=True):
+        boxes.append(lift_tile_boxes(b, p))
+        scores.append(np.asarray(s, dtype=np.float32).reshape(-1))
+        classes.append(np.asarray(c).reshape(-1).astype(np.int64))
+    if not boxes:
+        return (
+            np.zeros((0, 4), np.float32),
+            np.zeros(0, np.float32),
+            np.zeros(0, np.int64),
+        )
+    b, s, c = merge_tiled_detections(
+        np.concatenate(boxes),
+        np.concatenate(scores),
+        np.concatenate(classes),
+        metric=metric,
+        threshold=threshold,
+        mode=mode,
+        class_agnostic=class_agnostic,
+        max_det=max_det,
+    )
+    h, w = int(frame_hw[0]), int(frame_hw[1])
+    return np.clip(b, 0, np.array([w, h, w, h], np.float32)), s, c

@@ -102,3 +102,8 @@ def test_batch_sampling_fields_round_trip():
         {"frames_per_batch": 8, "placement_candidates": 2}
     )
     assert TilingConfig.from_dict(cfg.to_dict()) == cfg
+
+
+def test_frame_level_rfs_is_rejected_until_implemented():
+    with pytest.raises(ValueError, match="rfs is not implemented"):
+        TilingConfig.from_dict({"class_balance": "rfs"})

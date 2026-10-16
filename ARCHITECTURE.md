@@ -176,6 +176,9 @@ src/edgefirst/cameraadaptor/
 │   ├── targets.py       # Target rules for a window
 │   ├── grid.py          # EvenDist grid, letterbox, validation budget
 │   ├── merge.py         # Lift and cross-tile merge (matches HAL)
+│   ├── nms.py           # Multi-label NMS of the validation protocol
+│   ├── packing.py       # Fixed-shape window geometry and targets
+│   ├── exif.py          # EXIF orientation of encoded frames
 │   ├── metadata.py      # The model's `tiling` block
 │   ├── contract.py      # Conformance checks for the block
 │   ├── stats.py         # Sampler statistics
@@ -187,7 +190,8 @@ src/edgefirst/cameraadaptor/
 │   └── tiling.py        # Tiled validation ops on tensors
 └── tensorflow/
     ├── __init__.py      # TensorFlow exports
-    └── adaptor.py       # CameraAdaptor Keras layer
+    ├── adaptor.py       # CameraAdaptor Keras layer
+    └── tiling.py        # tf.data visits, tile rendering, graph NMS
 ```
 
 ## Dependencies
